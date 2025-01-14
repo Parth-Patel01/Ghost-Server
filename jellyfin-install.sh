@@ -265,6 +265,142 @@ create_manage_movies_html() {
 EOL
 }
 
+create_styles_css() {
+    echo "Creating styles.css file..."
+
+# Create the styles.css file inside the static folder and add the CSS code
+    cat <<EOL > ~/Project/movie-upload/static/styles.css
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Arial', sans-serif;
+}
+
+body {
+    background-color: #f4f7fc;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+}
+
+h1 {
+    font-size: 2rem;
+    color: #4caf50;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+}
+
+label {
+    display: block;
+    font-size: 1rem;
+    color: #555; 
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+input[type="file"] {
+    display: block;
+    margin: 0 auto 20px;
+    padding: 10px;
+    font-size: 1rem;
+    color: #333;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    width: 100%;
+    cursor: pointer;
+    background-color: #f9f9f9;
+}
+
+input[type="file"]:hover {
+    border-color: #4caf50;
+}
+
+.upload-btn {
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    width: 100%;
+    transition: background-color 0.3s;
+}
+
+.upload-btn:hover {
+    background-color: #45a049;
+}
+
+.status {
+    font-size: 1rem;
+    color: #333;
+    margin-top: 20px;
+    font-weight: bold;
+}
+
+.progress-wrapper {
+    margin-top: 20px;
+}
+
+progress {
+    width: 100%;
+    height: 20px;
+    border-radius: 10px;
+    appearance: none;
+}
+
+progress::-webkit-progress-bar {
+    background-color: #f3f3f3;
+    border-radius: 10px;
+}
+
+progress::-webkit-progress-value {
+    background-color: #4caf50;
+    border-radius: 10px;
+}
+
+#message {
+    font-size: 1rem;
+    margin-top: 20px;
+    color: #333;
+    font-weight: normal;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 20px;
+        width: 90%;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    .upload-btn {
+        font-size: 0.9rem;
+    }
+
+    input[type="file"] {
+        font-size: 0.9rem;
+    }
+}
+EOL
+}
+
 # 10. Set Up Gunicorn and Systemd Service
 setup_gunicorn_and_service() {
     echo "Setting up Gunicorn and systemd service..."
@@ -299,6 +435,7 @@ create_flask_app
 create_sync_script
 create_html_templates
 create_manage_movies_html
+create_styles_css
 setup_gunicorn_and_service
 
 echo "Movie upload app setup complete!"
