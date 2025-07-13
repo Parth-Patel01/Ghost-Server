@@ -34,6 +34,68 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Check if port is in use and kill process if needed
+check_and_free_port() {
+    local port=$1
+    local service_name=$2
+    
+    print_status "Checking if port $port is in use..."
+    
+    # Check if port is in use
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        print_warning "Port $port is in use"
+        
+        # Get the process using the port
+        local pid=$(lsof -Pi :$port -sTCP:LISTEN -t 2>/dev/null | head -n1)
+        local process_name=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
+        
+        print_status "Process using port $port: $process_name (PID: $pid)"
+        
+        if [[ "$process_name" == "$service_name" ]]; then
+            print_status "Stopping existing $service_name service..."
+            sudo systemctl stop $service_name 2>/dev/null || true
+            sudo pkill -f $service_name 2>/dev/null || true
+            sleep 2
+        else
+            print_warning "Killing process $process_name (PID: $pid) using port $port"
+            sudo kill -9 $pid 2>/dev/null || true
+            sleep 2
+        fi
+        
+        # Double check if port is still in use
+        if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+            print_error "Failed to free port $port"
+            return 1
+        fi
+    fi
+    
+    print_success "Port $port is available"
+    return 0
+}
+
+# Stop all nginx processes
+stop_nginx_completely() {
+    print_status "Stopping all nginx processes..."
+    
+    # Stop nginx service
+    sudo systemctl stop nginx 2>/dev/null || true
+    
+    # Kill any remaining nginx processes
+    sudo pkill -f nginx 2>/dev/null || true
+    
+    # Wait a moment for processes to stop
+    sleep 2
+    
+    # Force kill if still running
+    if pgrep -f nginx >/dev/null; then
+        print_warning "Force killing remaining nginx processes..."
+        sudo pkill -9 -f nginx 2>/dev/null || true
+        sleep 2
+    fi
+    
+    print_success "All nginx processes stopped"
+}
+
 # Check if running as root
 check_user() {
     if [[ $EUID -eq 0 ]]; then
@@ -88,7 +150,9 @@ install_dependencies() {
         nginx \
         sqlite3 \
         htop \
-        tree
+        tree \
+        lsof \
+        net-tools
     
     print_success "System dependencies installed"
 }
@@ -215,6 +279,15 @@ setup_services() {
 configure_nginx() {
     print_status "Configuring nginx..."
     
+    # Stop all existing nginx processes to avoid conflicts
+    stop_nginx_completely
+
+    # Backup existing nginx configuration if it exists
+    if [ -f /etc/nginx/sites-enabled/default ]; then
+        print_status "Backing up existing nginx default configuration..."
+        sudo cp /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/default.backup.$(date +%Y%m%d-%H%M%S)
+    fi
+
     # Create nginx configuration
     sudo tee /etc/nginx/sites-available/pi-media-server > /dev/null <<EOF
 server {
@@ -263,13 +336,38 @@ EOF
     sudo ln -sf /etc/nginx/sites-available/pi-media-server /etc/nginx/sites-enabled/
     sudo rm -f /etc/nginx/sites-enabled/default
     
+    # Check and free port 80 if needed
+    if ! check_and_free_port 80 "nginx"; then
+        print_error "Cannot free port 80 for nginx"
+        exit 1
+    fi
+    
     # Test nginx configuration
     if sudo nginx -t; then
+        print_success "Nginx configuration test passed"
         sudo systemctl enable nginx
-        sudo systemctl restart nginx
-        print_success "Nginx configured successfully"
+        
+        # Start nginx service
+        print_status "Starting nginx service..."
+        if sudo systemctl start nginx; then
+            print_success "Nginx started successfully"
+            
+            # Verify nginx is running and listening on port 80
+            sleep 2
+            if sudo systemctl is-active --quiet nginx && netstat -tlnp | grep -q ":80.*nginx"; then
+                print_success "Nginx is running and listening on port 80"
+            else
+                print_error "Nginx failed to start properly"
+                sudo systemctl status nginx
+                exit 1
+            fi
+        else
+            print_error "Failed to start nginx"
+            sudo systemctl status nginx
+            exit 1
+        fi
     else
-        print_error "Nginx configuration failed"
+        print_error "Nginx configuration test failed"
         exit 1
     fi
 }
@@ -297,6 +395,17 @@ init_database() {
 # Start services
 start_services() {
     print_status "Starting services..."
+    
+    # Check if required ports are available
+    if ! check_and_free_port 3000 "node"; then
+        print_error "Cannot free port 3000 for upload service"
+        exit 1
+    fi
+    
+    if ! check_and_free_port 8080 "node"; then
+        print_error "Cannot free port 8080 for stream service"
+        exit 1
+    fi
     
     # Start all services
     sudo systemctl start pi-media-upload.service
