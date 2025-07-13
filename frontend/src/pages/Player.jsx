@@ -313,13 +313,13 @@ const Player = () => {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Back button */}
-      <div className="mb-4">
+      <div className="mb-6">
         <Link 
           to="/" 
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+          className="inline-flex items-center px-4 py-3 text-sm font-semibold text-gray-300 hover:text-white bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-700 hover:to-gray-600 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
         >
           <ArrowLeftIcon className="h-5 w-5 mr-2" />
-          Back to Library
+          <span>🌊 Back to SoulStream</span>
         </Link>
       </div>
 

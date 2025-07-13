@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Grimreaper Media Server Installation Script
+# SoulStream Installation Script
 # This script sets up the complete dark-themed media streaming service on Raspberry Pi
 
 set -e  # Exit on any error
@@ -622,8 +622,8 @@ create_test_info() {
     PI_IP=$(hostname -I | awk '{print $1}')
     
     cat > "$INSTALL_DIR/SERVER_INFO.txt" <<EOF
-💀 Grimreaper Media Server Installation Complete! 💀
-Where Movies Meet the Darkness...
+🌊 SoulStream Installation Complete! 🌊
+Where Souls Flow Through Eternity...
 
 Server Information:
 ==================
@@ -758,9 +758,9 @@ remove_jellyfin() {
 # Main installation function
 main() {
     echo "=========================================="
-    echo "   💀 Grimreaper Media Server Installation 💀"
-    echo "=========================================="
-    echo "   Where Movies Meet the Darkness..."
+    echo "   🌊 SoulStream Installation 🌊"
+      echo "=========================================="
+      echo "   Where Souls Flow Through Eternity..."
     echo "=========================================="
     echo
     

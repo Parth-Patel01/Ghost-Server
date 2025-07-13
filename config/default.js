@@ -69,9 +69,9 @@ module.exports = {
 
     // Server branding
     branding: {
-        name: 'Grimreaper Media Server',
-        shortName: 'Grimreaper',
-        tagline: 'Where Movies Meet the Darkness',
+        name: 'SoulStream',
+        shortName: 'SoulStream',
+        tagline: 'Where Souls Flow Through Eternity',
         theme: 'dark'
     },
 

@@ -10,7 +10,7 @@ const Upload = () => {
 
   // Background upload support - restore state on page load
   useEffect(() => {
-    const savedUploads = localStorage.getItem('grimreaper_uploads')
+    const savedUploads = localStorage.getItem('soulstream_uploads')
     if (savedUploads) {
       try {
         const parsedUploads = JSON.parse(savedUploads)
@@ -49,7 +49,7 @@ const Upload = () => {
 
   // Save uploads to localStorage whenever uploads change
   useEffect(() => {
-    localStorage.setItem('grimreaper_uploads', JSON.stringify(uploads))
+    localStorage.setItem('soulstream_uploads', JSON.stringify(uploads))
   }, [uploads])
 
   const handleDragOver = (e) => {
@@ -340,7 +340,13 @@ const Upload = () => {
 
   const continueUploadChunks = async (uploadId, file, sessionId, existingChunks) => {
     const upload = uploads.find(u => u.id === uploadId)
-    if (!upload || upload.isPaused) return
+    if (!upload) return
+
+    // Don't continue if the upload is still paused
+    if (upload.status === 'paused' || upload.isPaused) {
+      console.log('Upload is paused, not continuing')
+      return
+    }
 
     // Create abort controller for this upload
     const abortController = new AbortController()
@@ -417,19 +423,32 @@ const Upload = () => {
     }
   }
 
-      return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-red-400 mb-2">
-            📽️ Upload to the Darkness
-          </h1>
-          <p className="text-sm sm:text-base text-gray-300">
-            Drag and drop video files or click to select. Supported formats: MP4, MKV, AVI, MOV, WebM
-          </p>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            💀 Grimreaper Media Server - Where Movies Meet the Darkness
-          </p>
-        </div>
+             return (
+       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+         <div className="mb-8 sm:mb-12 text-center">
+           <div className="flex items-center justify-center mb-4">
+             <div className="relative">
+               <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 to-purple-800 rounded-full shadow-xl">
+                 <span className="text-white font-bold text-2xl">🌊</span>
+               </div>
+               <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full animate-pulse flex items-center justify-center">
+                 <span className="text-white text-xs">✨</span>
+               </div>
+             </div>
+           </div>
+           <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-red-300 to-purple-400 mb-3">
+             SoulStream Portal
+           </h1>
+           <p className="text-lg sm:text-xl text-gray-300 mb-2">
+             🌟 Feed Your Souls to the Eternal Stream 🌟
+           </p>
+           <p className="text-sm sm:text-base text-gray-400 mb-1">
+             Drag and drop video files or click to select. Supported formats: MP4, MKV, AVI, MOV, WebM
+           </p>
+           <p className="text-xs sm:text-sm text-gray-500">
+             Where souls flow through eternity • Background uploads • Pause/Resume anytime
+           </p>
+         </div>
 
       {/* Upload Zone */}
       <div
@@ -439,13 +458,30 @@ const Upload = () => {
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
       >
-        <CloudArrowUpIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-red-400 mb-3 sm:mb-4" />
-        <p className="text-base sm:text-lg font-medium text-gray-200 mb-2 px-2">
-          💀 Drop video files into the darkness, or click to select
-        </p>
-        <p className="text-xs sm:text-sm text-gray-400 px-2">
-          Maximum file size: 4GB per file • Background uploads supported
-        </p>
+        <div className="relative z-10">
+          <div className="flex items-center justify-center mb-4">
+            <div className="relative">
+              <CloudArrowUpIcon className="h-16 w-16 sm:h-20 sm:w-20 text-red-400 animate-bounce" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-purple-500 rounded-full animate-pulse opacity-60"></div>
+              </div>
+            </div>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-purple-300 mb-3">
+            🌊 Soul Portal Awaits 🌊
+          </p>
+          <p className="text-base sm:text-lg font-medium text-gray-200 mb-2">
+            Drop your souls here to join the eternal stream
+          </p>
+          <p className="text-sm text-gray-400 mb-3">
+            Or click to select from your collection
+          </p>
+          <div className="flex items-center justify-center space-x-4 text-xs text-gray-500">
+            <span>🎬 Up to 4GB</span>
+            <span>⏸️ Pause/Resume</span>
+            <span>📱 Background Support</span>
+          </div>
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -458,10 +494,15 @@ const Upload = () => {
 
       {/* Upload Progress */}
               {uploads.length > 0 && (
-          <div className="mt-6 sm:mt-8">
-            <h2 className="text-lg sm:text-xl font-semibold text-red-400 mb-4">
-              ⚰️ Souls Being Harvested ({uploads.length})
-            </h2>
+          <div className="mt-8 sm:mt-12">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-purple-400 to-red-400 mb-2">
+                🌊 Souls Flowing Through Eternity 🌊
+              </h2>
+              <p className="text-sm text-gray-400">
+                {uploads.length} soul{uploads.length !== 1 ? 's' : ''} in the stream
+              </p>
+            </div>
           <div className="space-y-3 sm:space-y-4">
             {uploads.map((upload) => (
               <div key={upload.id} className="card p-3 sm:p-4">
@@ -555,19 +596,19 @@ const Upload = () => {
                   
                   {upload.error && (
                     <span className="text-red-400 text-xs break-words">
-                      💀 {upload.error}
+                      🌊 Stream interrupted: {upload.error}
                     </span>
                   )}
                   
                   {upload.status === 'processing' && (
-                    <span className="text-orange-400 text-xs">
-                      ⚗️ Feeding souls to the darkness... This may take several minutes.
+                    <span className="text-purple-400 text-xs">
+                      ✨ Soul being integrated into the eternal stream... This may take several minutes.
                     </span>
                   )}
 
                   {upload.status === 'paused' && (
                     <span className="text-yellow-400 text-xs">
-                      ⏸️ Soul harvest paused - Click play to resume
+                      ⏸️ Soul flow paused - Click to resume the eternal journey
                     </span>
                   )}
                 </div>

@@ -104,11 +104,16 @@ const Library = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 sm:mb-8">
         <div className="mb-4 sm:mb-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-red-400">
-            💀 The Dark Collection
-          </h1>
+          <div className="flex items-center mb-2">
+            <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-red-600 to-purple-800 rounded-full shadow-lg mr-3">
+              <span className="text-white font-bold text-sm">🌊</span>
+            </div>
+            <h1 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-red-300 to-purple-400">
+              SoulStream Collection
+            </h1>
+          </div>
           <p className="text-sm sm:text-base text-gray-300 mt-1">
-            {movies.length} soul{movies.length !== 1 ? 's' : ''} trapped in the darkness
+            {movies.length} soul{movies.length !== 1 ? 's' : ''} flowing through eternity
           </p>
         </div>
 
@@ -118,10 +123,10 @@ const Library = () => {
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 ${
                 filter === status
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-gradient-to-r from-red-600 to-purple-600 text-white shadow-lg'
+                  : 'bg-gradient-to-r from-gray-800 to-gray-700 text-gray-300 hover:from-gray-700 hover:to-gray-600 hover:shadow-md'
               }`}
             >
               {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
@@ -137,19 +142,26 @@ const Library = () => {
 
       {/* Movies Grid */}
       {filteredMovies.length === 0 ? (
-        <div className="text-center py-12">
+        <div className="text-center py-16">
           <div className="max-w-md mx-auto">
-            <PlayIcon className="mx-auto h-16 w-16 text-gray-500 mb-4" />
-            <h3 className="text-lg font-medium text-gray-200 mb-2">The void is empty</h3>
-            <p className="text-gray-400 mb-6">
+            <div className="relative mb-6">
+              <PlayIcon className="mx-auto h-20 w-20 text-gray-500 mb-4" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-4 h-4 bg-gradient-to-r from-red-500 to-purple-500 rounded-full animate-pulse opacity-40"></div>
+              </div>
+            </div>
+            <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-purple-300 mb-3">
+              The Stream Awaits
+            </h3>
+            <p className="text-gray-400 mb-8">
               {filter === 'all' 
-                ? "💀 No souls have been captured yet. Feed the darkness with your first movie."
-                : `No souls with status "${filter}" found in the darkness.`
+                ? "🌊 No souls have joined the eternal stream yet. Upload your first soul to begin the journey."
+                : `No souls with status "${filter}" found in the stream.`
               }
             </p>
             {filter === 'all' && (
-              <Link to="/upload" className="btn-primary">
-                🎬 Feed the Darkness
+              <Link to="/upload" className="btn-primary inline-flex items-center">
+                � <span className="ml-2">Join the Stream</span>
               </Link>
             )}
           </div>

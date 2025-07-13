@@ -8,29 +8,32 @@
   }
   
   body {
-    @apply bg-gray-900 text-gray-100;
+    @apply bg-black text-white;
+    background-image: radial-gradient(circle at 20% 80%, rgba(120, 5, 120, 0.3) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 20%, rgba(255, 0, 0, 0.3) 0%, transparent 50%),
+                      radial-gradient(circle at 40% 40%, rgba(120, 5, 120, 0.2) 0%, transparent 50%);
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900;
+    @apply bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-black shadow-lg hover:shadow-xl;
   }
   
   .btn-secondary {
-    @apply bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900;
+    @apply bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-700 hover:to-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-black shadow-lg hover:shadow-xl;
   }
   
   .btn-danger {
-    @apply bg-red-700 hover:bg-red-800 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900;
+    @apply bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-black shadow-lg hover:shadow-xl;
   }
   
   .card {
-    @apply bg-gray-800 rounded-lg shadow-lg border border-gray-700;
+    @apply bg-gradient-to-br from-gray-900 to-black rounded-xl shadow-2xl border border-gray-800 backdrop-blur-sm;
   }
   
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-600 bg-gray-800 text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent;
+    @apply w-full px-4 py-3 border border-gray-700 bg-gradient-to-r from-gray-900 to-black text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 shadow-inner;
   }
 }
 
@@ -53,20 +56,54 @@
 
 /* Progress bar styling */
 .progress-bar {
-  @apply w-full bg-gray-700 rounded-full h-2;
+  @apply w-full bg-gray-800 rounded-full h-3 shadow-inner;
 }
 
 .progress-bar-fill {
-  @apply bg-red-600 h-2 rounded-full transition-all duration-300 ease-out;
+  @apply bg-gradient-to-r from-red-500 via-purple-500 to-red-600 h-3 rounded-full transition-all duration-500 ease-out shadow-lg;
+  background-size: 200% 100%;
+  animation: soul-flow 2s ease-in-out infinite;
+}
+
+@keyframes soul-flow {
+  0%, 100% { background-position: 200% 0; }
+  50% { background-position: 0% 0; }
 }
 
 /* Upload zone styling */
 .upload-zone {
-  @apply border-2 border-dashed border-gray-600 rounded-lg p-4 sm:p-6 md:p-8 text-center transition-colors duration-200 cursor-pointer hover:border-gray-500 hover:bg-gray-800;
+  @apply border-2 border-dashed border-red-800 rounded-2xl p-6 sm:p-8 md:p-12 text-center transition-all duration-300 cursor-pointer relative overflow-hidden;
+  background: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(30,30,30,0.8) 100%);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 0 50px rgba(255,0,0,0.1);
+}
+
+.upload-zone:hover {
+  @apply border-red-500;
+  background: linear-gradient(135deg, rgba(20,20,20,0.9) 0%, rgba(40,40,40,0.9) 100%);
+  box-shadow: inset 0 0 50px rgba(255,0,0,0.2), 0 0 30px rgba(255,0,0,0.3);
 }
 
 .upload-zone.drag-over {
-  @apply border-red-500 bg-red-900 bg-opacity-20;
+  @apply border-red-400;
+  background: linear-gradient(135deg, rgba(50,0,0,0.8) 0%, rgba(100,0,50,0.8) 100%);
+  box-shadow: inset 0 0 50px rgba(255,0,0,0.4), 0 0 50px rgba(255,0,0,0.5);
+  transform: scale(1.02);
+}
+
+.upload-zone::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transition: left 0.5s;
+}
+
+.upload-zone:hover::before {
+  left: 100%;
 }
 
 /* Mobile-specific styles */
