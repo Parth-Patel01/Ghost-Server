@@ -1,0 +1,35 @@
+{
+  "name": "pi-media-server",
+  "version": "1.0.0",
+  "description": "Local media streaming service for Raspberry Pi",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "worker": "node src/worker.js",
+    "media-server": "node src/media-server.js",
+    "build-frontend": "cd frontend && npm run build",
+    "setup": "npm install && cd frontend && npm install"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "sqlite3": "^5.1.6",
+    "redis": "^4.6.10",
+    "bull": "^4.12.2",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.1",
+    "ffmpeg-static": "^5.2.0",
+    "fluent-ffmpeg": "^2.1.2",
+    "sharp": "^0.33.0",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "compression": "^1.7.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": ["media", "streaming", "raspberry-pi", "local"],
+  "author": "Pi Media Server",
+  "license": "MIT"
+}
