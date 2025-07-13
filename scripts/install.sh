@@ -10,6 +10,28 @@ INSTALL_DIR="$HOME/pi-media-server"
 MEDIA_DIR="/media/movies"
 DB_PATH="$HOME/media.db"
 SERVICE_USER="$USER"
+FORCE_INSTALL=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -f|--force)
+            FORCE_INSTALL=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [options]"
+            echo "Options:"
+            echo "  -f, --force    Force installation, skip confirmation prompts"
+            echo "  -h, --help     Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
 
 # Colors for output
 RED='\033[0;31m'
@@ -96,6 +118,104 @@ stop_nginx_completely() {
     print_success "All nginx processes stopped"
 }
 
+# Clean up existing installation
+cleanup_existing_installation() {
+    print_status "Checking for existing installation..."
+    
+    # Check if any existing installation exists
+    local has_existing_install=false
+    
+    if [ -d "$INSTALL_DIR" ] || [ -f "$DB_PATH" ] || systemctl is-active --quiet pi-media-upload.service 2>/dev/null; then
+        has_existing_install=true
+    fi
+    
+    if [ "$has_existing_install" = true ]; then
+        print_warning "Existing Pi Media Server installation detected!"
+        print_warning "This will remove:"
+        echo "  - Installation directory: $INSTALL_DIR"
+        echo "  - Service files and configurations"
+        echo "  - Nginx configuration"
+        echo "  - Temporary files"
+        echo "  - Database (optional)"
+        echo
+        
+        if [ "$FORCE_INSTALL" = false ]; then
+            read -p "Continue with cleanup? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_status "Cleanup cancelled. Exiting installation."
+                exit 0
+            fi
+        else
+            print_status "Force mode enabled - proceeding with cleanup automatically"
+        fi
+    else
+        print_success "No existing installation found"
+        return
+    fi
+    
+    # Stop any running services first
+    print_status "Stopping any existing Pi Media Server services..."
+    sudo systemctl stop pi-media-upload.service 2>/dev/null || true
+    sudo systemctl stop pi-media-stream.service 2>/dev/null || true
+    sudo systemctl stop pi-media-worker.service 2>/dev/null || true
+    
+    # Remove systemd service files
+    print_status "Removing existing service files..."
+    sudo rm -f /etc/systemd/system/pi-media-upload.service
+    sudo rm -f /etc/systemd/system/pi-media-stream.service
+    sudo rm -f /etc/systemd/system/pi-media-worker.service
+    sudo systemctl daemon-reload
+    
+    # Remove nginx configuration
+    print_status "Removing existing nginx configuration..."
+    sudo rm -f /etc/nginx/sites-enabled/pi-media-server
+    sudo rm -f /etc/nginx/sites-available/pi-media-server
+    
+    # Remove installation directory if it exists
+    if [ -d "$INSTALL_DIR" ]; then
+        print_status "Removing existing installation directory: $INSTALL_DIR"
+        rm -rf "$INSTALL_DIR"
+        print_success "Existing installation directory removed"
+    fi
+    
+    # Remove any backup directories
+    if [ -d "$INSTALL_DIR.backup" ]; then
+        print_status "Removing backup directory: $INSTALL_DIR.backup"
+        rm -rf "$INSTALL_DIR.backup"
+    fi
+    
+    # Remove any temporary files
+    print_status "Cleaning up temporary files..."
+    rm -rf /tmp/pi-media-* 2>/dev/null || true
+    
+    # Remove database if it exists (user can choose to keep it)
+    if [ -f "$DB_PATH" ]; then
+        print_warning "Existing database found at: $DB_PATH"
+        
+        if [ "$FORCE_INSTALL" = false ]; then
+            read -p "Do you want to remove the existing database? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                rm -f "$DB_PATH"
+                print_success "Database removed"
+            else
+                print_status "Database preserved"
+            fi
+        else
+            print_status "Force mode enabled - preserving existing database"
+        fi
+    fi
+    
+    # Kill any remaining processes using our ports
+    print_status "Freeing up required ports..."
+    check_and_free_port 80 "nginx" || true
+    check_and_free_port 3000 "node" || true
+    check_and_free_port 8080 "node" || true
+    
+    print_success "Cleanup completed"
+}
+
 # Check if running as root
 check_user() {
     if [[ $EUID -eq 0 ]]; then
@@ -117,10 +237,15 @@ check_user() {
 check_platform() {
     if ! grep -q "Raspberry Pi" /proc/cpuinfo 2>/dev/null; then
         print_warning "This script is designed for Raspberry Pi, but can work on other Linux systems"
-        read -p "Continue anyway? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
+        
+        if [ "$FORCE_INSTALL" = false ]; then
+            read -p "Continue anyway? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                exit 1
+            fi
+        else
+            print_status "Force mode enabled - continuing on non-Raspberry Pi system"
         fi
     fi
 }
@@ -579,9 +704,14 @@ main() {
     echo "=========================================="
     echo
     
+    if [ "$FORCE_INSTALL" = true ]; then
+        print_status "Running in FORCE mode - skipping confirmation prompts"
+    fi
+    
     check_user
     check_platform
     remove_jellyfin
+    cleanup_existing_installation
     
     print_status "Starting installation process..."
     
@@ -611,6 +741,10 @@ main() {
     echo "- Set up static IP on your Pi"
     echo "- Update router settings to reserve the IP"
     echo "- Configure your actual network settings in config/default.js"
+    echo
+    print_status "Installation completed successfully!"
+    print_status "To reinstall or update, run: ./scripts/install.sh"
+    print_status "For automated installation, use: ./scripts/install.sh --force"
 }
 
 # Run main function
