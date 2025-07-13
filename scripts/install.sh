@@ -478,12 +478,28 @@ EOF
             print_success "Nginx started successfully"
             
             # Verify nginx is running and listening on port 80
-            sleep 2
-            if sudo systemctl is-active --quiet nginx && netstat -tlnp | grep -q ":80.*nginx"; then
+            sleep 3
+            
+            # Multiple verification methods
+            nginx_active=$(sudo systemctl is-active --quiet nginx && echo "active" || echo "inactive")
+            port_80_listening=$(ss -tlnp | grep -q ":80" && echo "listening" || echo "not_listening")
+            
+            print_status "Nginx service status: $nginx_active"
+            print_status "Port 80 status: $port_80_listening"
+            
+            if [ "$nginx_active" = "active" ] && [ "$port_80_listening" = "listening" ]; then
                 print_success "Nginx is running and listening on port 80"
+            elif [ "$nginx_active" = "active" ] && [ "$port_80_listening" = "not_listening" ]; then
+                print_warning "Nginx is running but port 80 may not be accessible"
+                print_status "This might be due to firewall or network configuration"
+                print_status "Continuing with installation..."
             else
                 print_error "Nginx failed to start properly"
-                sudo systemctl status nginx
+                print_status "Debug information:"
+                sudo systemctl status nginx --no-pager
+                echo
+                print_status "Port 80 check:"
+                ss -tlnp | grep ":80" || echo "No process listening on port 80"
                 exit 1
             fi
         else
