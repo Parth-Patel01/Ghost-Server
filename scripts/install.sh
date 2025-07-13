@@ -371,6 +371,90 @@ EOF
     print_success "Server info created at $INSTALL_DIR/SERVER_INFO.txt"
 }
 
+# Remove existing Jellyfin installation and reset OS to defaults
+remove_jellyfin() {
+    print_status "Checking for existing Jellyfin installation..."
+    
+    # Stop and disable Jellyfin services
+    if systemctl is-active --quiet jellyfin 2>/dev/null; then
+        print_status "Stopping Jellyfin services..."
+        sudo systemctl stop jellyfin
+    fi
+    
+    if systemctl is-enabled --quiet jellyfin 2>/dev/null; then
+        print_status "Disabling Jellyfin services..."
+        sudo systemctl disable jellyfin
+    fi
+    
+    # Remove Jellyfin packages
+    print_status "Removing Jellyfin packages..."
+    sudo apt remove --purge -y jellyfin jellyfin-server jellyfin-web jellyfin-ffmpeg* 2>/dev/null || true
+    
+    # Remove Jellyfin repository
+    print_status "Removing Jellyfin repository..."
+    sudo rm -f /etc/apt/sources.list.d/jellyfin.list
+    sudo rm -f /etc/apt/trusted.gpg.d/jellyfin.gpg
+    sudo rm -f /usr/share/keyrings/jellyfin-archive-keyring.gpg
+    
+    # Remove Jellyfin directories and data
+    print_status "Removing Jellyfin directories..."
+    sudo rm -rf /etc/jellyfin
+    sudo rm -rf /var/lib/jellyfin
+    sudo rm -rf /var/cache/jellyfin
+    sudo rm -rf /var/log/jellyfin
+    sudo rm -rf /usr/lib/jellyfin
+    sudo rm -rf /usr/share/jellyfin
+    
+    # Remove user directories
+    rm -rf ~/jellyfin* 2>/dev/null || true
+    rm -rf ~/.config/jellyfin* 2>/dev/null || true
+    rm -rf ~/.local/share/jellyfin* 2>/dev/null || true
+    
+    # Remove any Flask/Python upload projects
+    print_status "Removing old upload projects..."
+    rm -rf ~/Project/movie-upload 2>/dev/null || true
+    rm -rf ~/Project 2>/dev/null || true
+    
+    # Remove Jellyfin firewall rules
+    print_status "Removing Jellyfin firewall rules..."
+    sudo ufw delete allow 8096/tcp 2>/dev/null || true
+    
+    # Remove Jellyfin user and group
+    if id "jellyfin" &>/dev/null; then
+        print_status "Removing Jellyfin user..."
+        sudo userdel jellyfin 2>/dev/null || true
+    fi
+    if getent group jellyfin >/dev/null; then
+        sudo groupdel jellyfin 2>/dev/null || true
+    fi
+    
+    # Clean package cache
+    print_status "Cleaning package cache..."
+    sudo apt autoremove -y
+    sudo apt autoclean
+    sudo apt update
+    
+    # Remove any systemd service files
+    sudo rm -f /etc/systemd/system/jellyfin* 2>/dev/null || true
+    sudo rm -f /lib/systemd/system/jellyfin* 2>/dev/null || true
+    sudo systemctl daemon-reload
+    
+    # Clean up old media directories if they exist and are empty
+    if [ -d ~/media ] && [ -z "$(ls -A ~/media 2>/dev/null)" ]; then
+        print_status "Removing empty old media directory..."
+        rm -rf ~/media
+    fi
+    
+    # Reset nginx to default configuration
+    print_status "Resetting nginx to defaults..."
+    sudo rm -f /etc/nginx/sites-enabled/jellyfin* 2>/dev/null || true
+    sudo rm -f /etc/nginx/sites-available/jellyfin* 2>/dev/null || true
+    
+    print_success "Jellyfin removal and OS reset completed"
+    print_warning "System is now clean and ready for Pi Media Server installation"
+    echo
+}
+
 # Main installation function
 main() {
     echo "=========================================="
@@ -380,6 +464,7 @@ main() {
     
     check_user
     check_platform
+    remove_jellyfin
     
     print_status "Starting installation process..."
     
