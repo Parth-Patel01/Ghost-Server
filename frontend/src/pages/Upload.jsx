@@ -1,11 +1,56 @@
-import { useState, useRef } from 'react'
-import { CloudArrowUpIcon, FilmIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { useState, useRef, useEffect } from 'react'
+import { CloudArrowUpIcon, FilmIcon, XMarkIcon, PlayIcon, PauseIcon } from '@heroicons/react/24/outline'
 import { uploadAPI } from '../utils/api'
 
 const Upload = () => {
   const [uploads, setUploads] = useState([])
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef(null)
+  const uploadControllers = useRef(new Map()) // For pause/resume control
+
+  // Background upload support - restore state on page load
+  useEffect(() => {
+    const savedUploads = localStorage.getItem('grimreaper_uploads')
+    if (savedUploads) {
+      try {
+        const parsedUploads = JSON.parse(savedUploads)
+        // Filter out completed or failed uploads, keep only in-progress ones
+        const inProgressUploads = parsedUploads.filter(
+          upload => upload.status === 'uploading' || upload.status === 'paused'
+        )
+        if (inProgressUploads.length > 0) {
+          setUploads(inProgressUploads)
+          // Note: resumeUpload will be available after state is set
+          setTimeout(() => {
+            inProgressUploads.forEach(upload => {
+              if (upload.status === 'uploading') {
+                resumeUpload(upload.id)
+              }
+            })
+          }, 100)
+        }
+      } catch (error) {
+        console.error('Error restoring uploads:', error)
+      }
+    }
+
+    // Handle page visibility changes for background uploads
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('Page hidden - uploads continue in background')
+      } else {
+        console.log('Page visible - checking upload status')
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
+  // Save uploads to localStorage whenever uploads change
+  useEffect(() => {
+    localStorage.setItem('grimreaper_uploads', JSON.stringify(uploads))
+  }, [uploads])
 
   const handleDragOver = (e) => {
     e.preventDefault()
@@ -48,7 +93,10 @@ const Upload = () => {
       status: 'starting',
       sessionId: null,
       chunks: [],
-      error: null
+      error: null,
+      isPaused: false,
+      uploadedChunks: 0,
+      totalChunks: 0
     }
 
     setUploads(prev => [...prev, newUpload])
@@ -99,19 +147,37 @@ const Upload = () => {
       chunks.push({ index: i, data: chunk, uploaded: false })
     }
 
-    updateUpload(uploadId, { chunks })
+    updateUpload(uploadId, { 
+      chunks, 
+      totalChunks,
+      uploadedChunks: 0
+    })
+
+    // Create abort controller for this upload
+    const abortController = new AbortController()
+    uploadControllers.current.set(uploadId, abortController)
 
     // Upload chunks with limited concurrency
     const concurrency = 3
-    const uploadPromises = []
 
     for (let i = 0; i < chunks.length; i += concurrency) {
+      // Check if upload was paused or cancelled
+      if (abortController.signal.aborted) {
+        break
+      }
+
       const batch = chunks.slice(i, i + concurrency)
-      const batchPromises = batch.map(chunk => uploadChunk(uploadId, sessionId, chunk))
+      const batchPromises = batch.map(chunk => 
+        uploadChunk(uploadId, sessionId, chunk, 0, abortController.signal)
+      )
       
       try {
         await Promise.all(batchPromises)
       } catch (error) {
+        if (error.name === 'AbortError' || error.message === 'Upload aborted') {
+          console.log('Upload aborted (paused or cancelled)')
+          return
+        }
         throw error
       }
     }
@@ -124,13 +190,19 @@ const Upload = () => {
         progress: 100,
         movieId: result.movieId
       })
+      uploadControllers.current.delete(uploadId)
     } catch (error) {
       throw error
     }
   }
 
-  const uploadChunk = async (uploadId, sessionId, chunk, retryCount = 0) => {
+  const uploadChunk = async (uploadId, sessionId, chunk, retryCount = 0, abortSignal = null) => {
     try {
+      // Check if upload was aborted
+      if (abortSignal && abortSignal.aborted) {
+        throw new Error('Upload aborted')
+      }
+
       await uploadAPI.uploadChunk(
         sessionId,
         chunk.index,
@@ -139,17 +211,23 @@ const Upload = () => {
           if (progressEvent.lengthComputable) {
             updateChunkProgress(uploadId, chunk.index, progressEvent.loaded, progressEvent.total)
           }
-        }
+        },
+        abortSignal
       )
 
       markChunkUploaded(uploadId, chunk.index)
     } catch (error) {
+      // Handle abort
+      if (error.name === 'AbortError' || error.message === 'Upload aborted') {
+        throw error
+      }
+
       // Handle rate limiting with retry
       if (error.response?.status === 429 && retryCount < 3) {
         console.log(`Rate limited, retrying chunk ${chunk.index} (attempt ${retryCount + 1})`)
         // Wait with exponential backoff
         await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000))
-        return uploadChunk(uploadId, sessionId, chunk, retryCount + 1)
+        return uploadChunk(uploadId, sessionId, chunk, retryCount + 1, abortSignal)
       }
       throw error
     }
@@ -205,6 +283,13 @@ const Upload = () => {
     const upload = uploads.find(u => u.id === uploadId)
     if (!upload || !upload.sessionId) return
 
+    // Cancel the upload controller
+    const controller = uploadControllers.current.get(uploadId)
+    if (controller) {
+      controller.abort()
+      uploadControllers.current.delete(uploadId)
+    }
+
     try {
       await uploadAPI.cancelUpload(upload.sessionId)
       console.log(`Upload cancelled: ${uploadId}`)
@@ -213,6 +298,94 @@ const Upload = () => {
     }
     
     removeUpload(uploadId)
+  }
+
+  const pauseUpload = (uploadId) => {
+    const controller = uploadControllers.current.get(uploadId)
+    if (controller) {
+      controller.abort()
+      uploadControllers.current.delete(uploadId)
+    }
+
+    updateUpload(uploadId, {
+      status: 'paused',
+      isPaused: true
+    })
+    
+    console.log(`Upload paused: ${uploadId}`)
+  }
+
+  const resumeUpload = async (uploadId) => {
+    const upload = uploads.find(u => u.id === uploadId)
+    if (!upload) return
+
+    updateUpload(uploadId, {
+      status: 'uploading',
+      isPaused: false
+    })
+
+    try {
+      // Continue uploading remaining chunks
+      if (upload.chunks && upload.sessionId) {
+        await continueUploadChunks(uploadId, upload.file, upload.sessionId, upload.chunks)
+      }
+    } catch (error) {
+      console.error('Error resuming upload:', error)
+      updateUpload(uploadId, {
+        status: 'error',
+        error: error.response?.data?.error || error.message
+      })
+    }
+  }
+
+  const continueUploadChunks = async (uploadId, file, sessionId, existingChunks) => {
+    const upload = uploads.find(u => u.id === uploadId)
+    if (!upload || upload.isPaused) return
+
+    // Create abort controller for this upload
+    const abortController = new AbortController()
+    uploadControllers.current.set(uploadId, abortController)
+
+    const remainingChunks = existingChunks.filter(chunk => !chunk.uploaded)
+    const concurrency = 3
+
+    for (let i = 0; i < remainingChunks.length; i += concurrency) {
+      // Check if upload was paused or cancelled
+      if (abortController.signal.aborted) {
+        break
+      }
+
+      const batch = remainingChunks.slice(i, i + concurrency)
+      const batchPromises = batch.map(chunk => 
+        uploadChunk(uploadId, sessionId, chunk, 0, abortController.signal)
+      )
+      
+      try {
+        await Promise.all(batchPromises)
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('Upload batch aborted (paused or cancelled)')
+          return
+        }
+        throw error
+      }
+    }
+
+    // Check if all chunks are uploaded
+    const updatedUpload = uploads.find(u => u.id === uploadId)
+    if (updatedUpload && updatedUpload.chunks.every(chunk => chunk.uploaded)) {
+      try {
+        const result = await uploadAPI.completeUpload(sessionId)
+        updateUpload(uploadId, {
+          status: 'processing',
+          progress: 100,
+          movieId: result.movieId
+        })
+        uploadControllers.current.delete(uploadId)
+      } catch (error) {
+        throw error
+      }
+    }
   }
 
   const formatFileSize = (bytes) => {
@@ -225,10 +398,11 @@ const Upload = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'uploading': return 'text-blue-600'
-      case 'processing': return 'text-yellow-600'
-      case 'error': return 'text-red-600'
-      default: return 'text-gray-600'
+      case 'uploading': return 'text-blue-400'
+      case 'paused': return 'text-yellow-400'
+      case 'processing': return 'text-orange-400'
+      case 'error': return 'text-red-400'
+      default: return 'text-gray-400'
     }
   }
 
@@ -236,20 +410,26 @@ const Upload = () => {
     switch (status) {
       case 'starting': return 'Starting...'
       case 'uploading': return 'Uploading'
+      case 'paused': return 'Paused'
       case 'processing': return 'Processing'
       case 'error': return 'Error'
       default: return 'Unknown'
     }
   }
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Upload Movies</h1>
-        <p className="text-sm sm:text-base text-gray-600">
-          Drag and drop video files or click to select. Supported formats: MP4, MKV, AVI, MOV, WebM
-        </p>
-      </div>
+      return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-red-400 mb-2">
+            📽️ Upload to the Darkness
+          </h1>
+          <p className="text-sm sm:text-base text-gray-300">
+            Drag and drop video files or click to select. Supported formats: MP4, MKV, AVI, MOV, WebM
+          </p>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            💀 Grimreaper Media Server - Where Movies Meet the Darkness
+          </p>
+        </div>
 
       {/* Upload Zone */}
       <div
@@ -259,12 +439,12 @@ const Upload = () => {
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
       >
-        <CloudArrowUpIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mb-3 sm:mb-4" />
-        <p className="text-base sm:text-lg font-medium text-gray-700 mb-2 px-2">
-          Drop video files here, or click to select
+        <CloudArrowUpIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-red-400 mb-3 sm:mb-4" />
+        <p className="text-base sm:text-lg font-medium text-gray-200 mb-2 px-2">
+          💀 Drop video files into the darkness, or click to select
         </p>
-        <p className="text-xs sm:text-sm text-gray-500 px-2">
-          Maximum file size: 4GB per file
+        <p className="text-xs sm:text-sm text-gray-400 px-2">
+          Maximum file size: 4GB per file • Background uploads supported
         </p>
         <input
           ref={fileInputRef}
@@ -277,49 +457,87 @@ const Upload = () => {
       </div>
 
       {/* Upload Progress */}
-      {uploads.length > 0 && (
-        <div className="mt-6 sm:mt-8">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Upload Progress</h2>
+              {uploads.length > 0 && (
+          <div className="mt-6 sm:mt-8">
+            <h2 className="text-lg sm:text-xl font-semibold text-red-400 mb-4">
+              ⚰️ Souls Being Harvested ({uploads.length})
+            </h2>
           <div className="space-y-3 sm:space-y-4">
             {uploads.map((upload) => (
               <div key={upload.id} className="card p-3 sm:p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-start space-x-2 sm:space-x-3 flex-1 min-w-0">
-                    <FilmIcon className="h-5 w-5 sm:h-6 sm:w-6 text-primary-600 mt-1 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-medium text-gray-900 text-sm sm:text-base truncate">
-                        {upload.movieInfo?.title || upload.file.name}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-500 flex flex-wrap">
-                        <span>{formatFileSize(upload.file.size)}</span>
-                        <span className="mx-1">•</span>
-                        <span>{getStatusText(upload.status)}</span>
-                      </p>
-                      {upload.movieInfo?.year && (
-                        <p className="text-xs sm:text-sm text-gray-400">
-                          Year: {upload.movieInfo.year}
+                                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start space-x-2 sm:space-x-3 flex-1 min-w-0">
+                      <FilmIcon className="h-5 w-5 sm:h-6 sm:w-6 text-red-400 mt-1 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-medium text-gray-100 text-sm sm:text-base truncate">
+                          {upload.movieInfo?.title || upload.file.name}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-400 flex flex-wrap">
+                          <span>{formatFileSize(upload.file.size)}</span>
+                          <span className="mx-1">•</span>
+                          <span>{getStatusText(upload.status)}</span>
                         </p>
-                      )}
+                        {upload.movieInfo?.year && (
+                          <p className="text-xs sm:text-sm text-gray-500">
+                            Year: {upload.movieInfo.year}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {upload.status === 'error' ? (
-                    <button
-                      onClick={() => removeUpload(upload.id)}
-                      className="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1"
-                      title="Remove failed upload"
-                    >
-                      <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </button>
-                  ) : (upload.status === 'uploading' || upload.status === 'starting') ? (
-                    <button
-                      onClick={() => cancelUpload(upload.id)}
-                      className="text-red-400 hover:text-red-600 flex-shrink-0 p-1"
-                      title="Cancel upload"
-                    >
-                      <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </button>
-                  ) : null}
+                  <div className="flex items-center space-x-2">
+                    {upload.status === 'error' ? (
+                      <button
+                        onClick={() => removeUpload(upload.id)}
+                        className="text-gray-400 hover:text-gray-200 flex-shrink-0 p-1"
+                        title="Remove failed upload"
+                      >
+                        <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </button>
+                    ) : upload.status === 'uploading' ? (
+                      <>
+                        <button
+                          onClick={() => pauseUpload(upload.id)}
+                          className="text-yellow-400 hover:text-yellow-300 flex-shrink-0 p-1"
+                          title="Pause upload"
+                        >
+                          <PauseIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </button>
+                        <button
+                          onClick={() => cancelUpload(upload.id)}
+                          className="text-red-400 hover:text-red-300 flex-shrink-0 p-1"
+                          title="Cancel upload"
+                        >
+                          <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </button>
+                      </>
+                    ) : upload.status === 'paused' ? (
+                      <>
+                        <button
+                          onClick={() => resumeUpload(upload.id)}
+                          className="text-green-400 hover:text-green-300 flex-shrink-0 p-1"
+                          title="Resume upload"
+                        >
+                          <PlayIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </button>
+                        <button
+                          onClick={() => cancelUpload(upload.id)}
+                          className="text-red-400 hover:text-red-300 flex-shrink-0 p-1"
+                          title="Cancel upload"
+                        >
+                          <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </button>
+                      </>
+                    ) : upload.status === 'starting' ? (
+                      <button
+                        onClick={() => cancelUpload(upload.id)}
+                        className="text-red-400 hover:text-red-300 flex-shrink-0 p-1"
+                        title="Cancel upload"
+                      >
+                        <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
 
                 {/* Progress Bar */}
@@ -336,14 +554,20 @@ const Upload = () => {
                   </span>
                   
                   {upload.error && (
-                    <span className="text-red-600 text-xs break-words">
-                      {upload.error}
+                    <span className="text-red-400 text-xs break-words">
+                      💀 {upload.error}
                     </span>
                   )}
                   
                   {upload.status === 'processing' && (
-                    <span className="text-yellow-600 text-xs">
-                      Processing video... This may take several minutes.
+                    <span className="text-orange-400 text-xs">
+                      ⚗️ Feeding souls to the darkness... This may take several minutes.
+                    </span>
+                  )}
+
+                  {upload.status === 'paused' && (
+                    <span className="text-yellow-400 text-xs">
+                      ⏸️ Soul harvest paused - Click play to resume
                     </span>
                   )}
                 </div>

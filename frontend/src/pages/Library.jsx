@@ -104,9 +104,11 @@ const Library = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 sm:mb-8">
         <div className="mb-4 sm:mb-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Movie Library</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">
-            {movies.length} movie{movies.length !== 1 ? 's' : ''} in your collection
+          <h1 className="text-2xl sm:text-3xl font-bold text-red-400">
+            💀 The Dark Collection
+          </h1>
+          <p className="text-sm sm:text-base text-gray-300 mt-1">
+            {movies.length} soul{movies.length !== 1 ? 's' : ''} trapped in the darkness
           </p>
         </div>
 
@@ -118,8 +120,8 @@ const Library = () => {
               onClick={() => setFilter(status)}
               className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors ${
                 filter === status
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
             >
               {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
@@ -137,17 +139,17 @@ const Library = () => {
       {filteredMovies.length === 0 ? (
         <div className="text-center py-12">
           <div className="max-w-md mx-auto">
-            <PlayIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No movies found</h3>
-            <p className="text-gray-500 mb-6">
+            <PlayIcon className="mx-auto h-16 w-16 text-gray-500 mb-4" />
+            <h3 className="text-lg font-medium text-gray-200 mb-2">The void is empty</h3>
+            <p className="text-gray-400 mb-6">
               {filter === 'all' 
-                ? "You haven't uploaded any movies yet. Click the upload button to get started."
-                : `No movies with status "${filter}" found.`
+                ? "💀 No souls have been captured yet. Feed the darkness with your first movie."
+                : `No souls with status "${filter}" found in the darkness.`
               }
             </p>
             {filter === 'all' && (
               <Link to="/upload" className="btn-primary">
-                Upload Your First Movie
+                🎬 Feed the Darkness
               </Link>
             )}
           </div>
@@ -172,8 +174,8 @@ const Library = () => {
                   ) : null}
                   
                   {/* Fallback poster */}
-                  <div className={`${movie.posterUrl ? 'hidden' : 'flex'} w-full h-full items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200`}>
-                    <PlayIcon className="h-8 w-8 sm:h-12 sm:w-12 text-primary-600" />
+                  <div className={`${movie.posterUrl ? 'hidden' : 'flex'} w-full h-full items-center justify-center bg-gradient-to-br from-gray-800 to-red-900`}>
+                    <PlayIcon className="h-8 w-8 sm:h-12 sm:w-12 text-red-400" />
                   </div>
 
                   {/* Status badge */}
@@ -202,11 +204,11 @@ const Library = () => {
 
                 {/* Movie info */}
                 <div className="p-2 sm:p-3">
-                  <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base" title={movie.title}>
+                  <h3 className="font-medium text-gray-100 truncate text-sm sm:text-base" title={movie.title}>
                     {movie.title}
                   </h3>
                   
-                  <div className="flex items-center justify-between mt-1 text-xs sm:text-sm text-gray-500">
+                  <div className="flex items-center justify-between mt-1 text-xs sm:text-sm text-gray-400">
                     {movie.year && (
                       <div className="flex items-center">
                         <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
@@ -231,10 +233,10 @@ const Library = () => {
                           style={{ width: movie.status === 'processing' ? '65%' : '30%' }}
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-400 mt-1">
                         {movie.status === 'processing' 
-                          ? 'Generating preview and segments...'
-                          : 'Uploading...'
+                          ? '⚗️ Extracting soul essence...'
+                          : '💀 Harvesting soul...'
                         }
                       </p>
                     </div>
@@ -242,9 +244,9 @@ const Library = () => {
 
                   {/* Error message */}
                   {movie.status === 'error' && movie.error_message && (
-                    <p className="text-xs text-red-600 mt-1" title={movie.error_message}>
-                      {movie.error_message.length > 40 
-                        ? movie.error_message.substring(0, 40) + '...'
+                    <p className="text-xs text-red-400 mt-1" title={movie.error_message}>
+                      💀 {movie.error_message.length > 35 
+                        ? movie.error_message.substring(0, 35) + '...'
                         : movie.error_message
                       }
                     </p>

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Pi Media Server Installation Script
-# This script sets up the complete local media streaming service on Raspberry Pi
+# Grimreaper Media Server Installation Script
+# This script sets up the complete dark-themed media streaming service on Raspberry Pi
 
 set -e  # Exit on any error
 
@@ -622,16 +622,17 @@ create_test_info() {
     PI_IP=$(hostname -I | awk '{print $1}')
     
     cat > "$INSTALL_DIR/SERVER_INFO.txt" <<EOF
-Pi Media Server Installation Complete!
+💀 Grimreaper Media Server Installation Complete! 💀
+Where Movies Meet the Darkness...
 
 Server Information:
 ==================
-Upload Interface: http://$PI_IP:3000
-Media Streaming:   http://$PI_IP:80 (via nginx proxy)
-Direct Media API:  http://$PI_IP:8080
-Installation Dir:  $INSTALL_DIR
-Media Directory:   $MEDIA_DIR
-Database:          $DB_PATH
+Dark Portal (Upload): http://$PI_IP:3000
+Soul Streaming:       http://$PI_IP:80 (via nginx proxy)
+Direct Dark API:      http://$PI_IP:8080
+Installation Dir:     $INSTALL_DIR
+Soul Storage:         $MEDIA_DIR
+Dark Database:        $DB_PATH
 
 Service Management:
 ==================
@@ -757,7 +758,9 @@ remove_jellyfin() {
 # Main installation function
 main() {
     echo "=========================================="
-    echo "    Pi Media Server Installation"
+    echo "   💀 Grimreaper Media Server Installation 💀"
+    echo "=========================================="
+    echo "   Where Movies Meet the Darkness..."
     echo "=========================================="
     echo
     
@@ -786,13 +789,13 @@ main() {
     
     echo
     echo "=========================================="
-    print_success "Installation completed successfully!"
+    print_success "💀 The darkness has been awakened! 💀"
     echo "=========================================="
     echo
-    print_status "Next steps:"
-    echo "1. Check server status: sudo systemctl status pi-media-*"
-    echo "2. Visit http://$(hostname -I | awk '{print $1}'):3000 to access the upload interface"
-    echo "3. Read $INSTALL_DIR/SERVER_INFO.txt for detailed information"
+    print_status "Next steps to enter the darkness:"
+    echo "1. Check soul harvester status: sudo systemctl status pi-media-*"
+    echo "2. Visit http://$(hostname -I | awk '{print $1}'):3000 to feed souls to the darkness"
+    echo "3. Read $INSTALL_DIR/SERVER_INFO.txt for dark secrets"
     echo
     print_warning "Remember to:"
     echo "- Set up static IP on your Pi"

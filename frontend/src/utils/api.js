@@ -36,18 +36,24 @@ export const uploadAPI = {
   },
 
   // Upload chunk
-  uploadChunk: async (sessionId, chunkIndex, chunkData, onProgress) => {
+  uploadChunk: async (sessionId, chunkIndex, chunkData, onProgress, abortSignal = null) => {
     const formData = new FormData()
     formData.append('sessionId', sessionId)
     formData.append('chunkIndex', chunkIndex.toString())
     formData.append('chunk', chunkData)
 
-    const response = await api.post('/upload/chunk', formData, {
+    const config = {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
       onUploadProgress: onProgress
-    })
+    }
+
+    if (abortSignal) {
+      config.signal = abortSignal
+    }
+
+    const response = await api.post('/upload/chunk', formData, config)
     return response.data
   },
 

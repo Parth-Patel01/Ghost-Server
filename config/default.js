@@ -67,6 +67,14 @@ module.exports = {
         streamingUrl: 'http://192.168.18.3:8080'
     },
 
+    // Server branding
+    branding: {
+        name: 'Grimreaper Media Server',
+        shortName: 'Grimreaper',
+        tagline: 'Where Movies Meet the Darkness',
+        theme: 'dark'
+    },
+
     // Development settings
     development: {
         enableLogging: true,
