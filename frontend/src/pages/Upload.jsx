@@ -68,9 +68,21 @@ const Upload = () => {
       
     } catch (error) {
       console.error('Upload failed:', error)
+      
+      let errorMessage = error.response?.data?.error || error.message
+      
+      // Provide better error messages for common issues
+      if (error.response?.status === 429) {
+        errorMessage = 'Upload rate limit reached. Please wait a moment and try again.'
+      } else if (error.response?.status === 413) {
+        errorMessage = 'File chunk too large. Please try uploading a smaller file.'
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later.'
+      }
+      
       updateUpload(uploadId, {
         status: 'error',
-        error: error.response?.data?.error || error.message
+        error: errorMessage
       })
     }
   }
@@ -117,7 +129,7 @@ const Upload = () => {
     }
   }
 
-  const uploadChunk = async (uploadId, sessionId, chunk) => {
+  const uploadChunk = async (uploadId, sessionId, chunk, retryCount = 0) => {
     try {
       await uploadAPI.uploadChunk(
         sessionId,
@@ -132,6 +144,13 @@ const Upload = () => {
 
       markChunkUploaded(uploadId, chunk.index)
     } catch (error) {
+      // Handle rate limiting with retry
+      if (error.response?.status === 429 && retryCount < 3) {
+        console.log(`Rate limited, retrying chunk ${chunk.index} (attempt ${retryCount + 1})`)
+        // Wait with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000))
+        return uploadChunk(uploadId, sessionId, chunk, retryCount + 1)
+      }
       throw error
     }
   }
@@ -180,6 +199,20 @@ const Upload = () => {
 
   const removeUpload = (uploadId) => {
     setUploads(prev => prev.filter(upload => upload.id !== uploadId))
+  }
+
+  const cancelUpload = async (uploadId) => {
+    const upload = uploads.find(u => u.id === uploadId)
+    if (!upload || !upload.sessionId) return
+
+    try {
+      await uploadAPI.cancelUpload(upload.sessionId)
+      console.log(`Upload cancelled: ${uploadId}`)
+    } catch (error) {
+      console.error('Error cancelling upload:', error)
+    }
+    
+    removeUpload(uploadId)
   }
 
   const formatFileSize = (bytes) => {
@@ -274,6 +307,15 @@ const Upload = () => {
                     <button
                       onClick={() => removeUpload(upload.id)}
                       className="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1"
+                      title="Remove failed upload"
+                    >
+                      <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </button>
+                  ) : (upload.status === 'uploading' || upload.status === 'starting') ? (
+                    <button
+                      onClick={() => cancelUpload(upload.id)}
+                      className="text-red-400 hover:text-red-600 flex-shrink-0 p-1"
+                      title="Cancel upload"
                     >
                       <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>

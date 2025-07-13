@@ -55,6 +55,12 @@ export const uploadAPI = {
   completeUpload: async (sessionId) => {
     const response = await api.post('/upload/complete', { sessionId })
     return response.data
+  },
+
+  // Cancel upload
+  cancelUpload: async (sessionId) => {
+    const response = await api.post('/upload/cancel', { sessionId })
+    return response.data
   }
 }
 

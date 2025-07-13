@@ -47,8 +47,16 @@ module.exports = {
             credentials: true
         },
         rateLimit: {
-            windowMs: 15 * 60 * 1000, // 15 minutes
-            max: 100 // limit each IP to 100 requests per windowMs
+            // General API rate limiting
+            general: {
+                windowMs: 15 * 60 * 1000, // 15 minutes
+                max: 100 // limit each IP to 100 requests per windowMs
+            },
+            // Upload-specific rate limiting (much higher for chunk uploads)
+            upload: {
+                windowMs: 15 * 60 * 1000, // 15 minutes
+                max: 10000 // allow many chunk uploads for large files
+            }
         }
     },
 

@@ -657,6 +657,8 @@ Troubleshooting:
 - Test upload service: curl http://localhost:3000/health
 - Test streaming service: curl http://localhost:8080/health
 - Check nginx config: sudo nginx -t
+- Upload issues: Check for rate limiting (429 errors) - wait and retry
+- Large file uploads: Uses chunked upload (10,000 requests/15min allowed)
 
 File Locations:
 ==============

@@ -20,6 +20,24 @@ class UploadServer {
         this.uploadSessions = new Map(); // In-memory session storage
         this.setupMiddleware();
         this.setupRoutes();
+        this.startSessionCleanup();
+    }
+
+    startSessionCleanup() {
+        // Clean up expired upload sessions every 5 minutes
+        setInterval(() => {
+            const now = new Date();
+            for (const [sessionId, session] of this.uploadSessions.entries()) {
+                if (now > session.expiresAt) {
+                    console.log(`Cleaning up expired session: ${sessionId}`);
+                    this.uploadSessions.delete(sessionId);
+                    // Clean up temp files
+                    fs.rmdir(session.tempDir, { recursive: true }).catch(err => {
+                        console.error('Error cleaning up temp dir:', err);
+                    });
+                }
+            }
+        }, 5 * 60 * 1000); // 5 minutes
     }
 
     setupMiddleware() {
@@ -30,9 +48,17 @@ class UploadServer {
         this.app.use(compression());
         this.app.use(cors(config.security.cors));
 
-        // Rate limiting
-        const limiter = rateLimit(config.security.rateLimit);
-        this.app.use('/api/', limiter);
+        // Rate limiting - different limits for different endpoints
+        const generalLimiter = rateLimit(config.security.rateLimit.general);
+        const uploadLimiter = rateLimit(config.security.rateLimit.upload);
+        
+        // Apply general rate limiting to all API endpoints except uploads
+        this.app.use('/api/', (req, res, next) => {
+            if (req.path.startsWith('/upload/')) {
+                return uploadLimiter(req, res, next);
+            }
+            return generalLimiter(req, res, next);
+        });
 
         // Body parsing
         this.app.use(express.json({ limit: '50mb' }));
@@ -61,6 +87,7 @@ class UploadServer {
         this.app.post('/api/upload/start', this.startUpload.bind(this));
         this.app.post('/api/upload/chunk', upload.single('chunk'), this.uploadChunk.bind(this));
         this.app.post('/api/upload/complete', this.completeUpload.bind(this));
+        this.app.post('/api/upload/cancel', this.cancelUpload.bind(this));
         this.app.get('/api/movies', this.getMovies.bind(this));
         this.app.get('/api/movies/:id', this.getMovie.bind(this));
         this.app.delete('/api/movies/:id', this.deleteMovie.bind(this));
@@ -276,6 +303,41 @@ class UploadServer {
         } catch (error) {
             console.error('Error completing upload:', error);
             res.status(500).json({ error: 'Failed to complete upload' });
+        }
+    }
+
+    async cancelUpload(req, res) {
+        try {
+            const { sessionId } = req.body;
+
+            if (!sessionId) {
+                return res.status(400).json({ error: 'Session ID is required' });
+            }
+
+            const session = this.uploadSessions.get(sessionId);
+            if (!session) {
+                return res.status(404).json({ error: 'Upload session not found' });
+            }
+
+            // Clean up session
+            this.uploadSessions.delete(sessionId);
+
+            // Clean up temp files
+            try {
+                await fs.rmdir(session.tempDir, { recursive: true });
+            } catch (err) {
+                console.error('Error cleaning up temp dir during cancel:', err);
+            }
+
+            // Remove from database
+            await this.db.deleteUploadSession(sessionId);
+
+            console.log(`Upload session cancelled: ${sessionId}`);
+            res.json({ message: 'Upload cancelled successfully' });
+
+        } catch (error) {
+            console.error('Error cancelling upload:', error);
+            res.status(500).json({ error: 'Failed to cancel upload' });
         }
     }
 
