@@ -24,15 +24,17 @@ const Navbar = () => {
           <div className="flex items-center group">
             {/* Creative SoulStream Logo */}
             <div className="relative">
-              <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-red-600 to-purple-800 rounded-full shadow-lg">
-                <span className="text-white font-bold text-sm sm:text-lg">🌊</span>
+              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-red-600 via-purple-700 to-black rounded-lg shadow-2xl rotate-45 transform">
+                <div className="bg-gradient-to-br from-white to-red-200 rounded-full w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center -rotate-45 shadow-inner">
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-br from-red-500 to-purple-600 rounded-full animate-pulse"></div>
+                </div>
               </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-red-500 to-purple-500 rounded-full animate-bounce opacity-80"></div>
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
             </div>
             <div className="ml-3">
-              <span className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-red-200 to-purple-300">
-                <span className="hidden sm:inline">SoulStream</span>
-                <span className="sm:hidden">Soul</span>
+              <span className="text-lg sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-red-200 to-purple-300">
+                SoulStream
               </span>
               <div className="text-xs text-gray-400 -mt-1 hidden sm:block">
                 Where souls flow

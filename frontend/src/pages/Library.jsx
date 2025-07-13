@@ -104,10 +104,14 @@ const Library = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 sm:mb-8">
         <div className="mb-4 sm:mb-0">
-          <div className="flex items-center mb-2">
-            <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-red-600 to-purple-800 rounded-full shadow-lg mr-3">
-              <span className="text-white font-bold text-sm">🌊</span>
-            </div>
+                     <div className="flex items-center mb-2">
+             <div className="relative mr-3">
+               <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-red-600 via-purple-700 to-black rounded-lg shadow-2xl rotate-45 transform">
+                 <div className="bg-gradient-to-br from-white to-red-200 rounded-full w-6 h-6 flex items-center justify-center -rotate-45 shadow-inner">
+                   <div className="w-3 h-3 bg-gradient-to-br from-red-500 to-purple-600 rounded-full animate-pulse"></div>
+                 </div>
+               </div>
+             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-red-300 to-purple-400">
               SoulStream Collection
             </h1>

@@ -324,10 +324,10 @@ const Player = () => {
       </div>
 
       {/* Video Player */}
-      <div className="relative bg-black rounded-lg overflow-hidden">
+      <div className="relative bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800">
         <video
           ref={videoRef}
-          className="w-full h-auto"
+          className="w-full h-auto max-h-[70vh] sm:max-h-none"
           poster={movie.posterUrl}
           preload="metadata"
           onClick={togglePlay}
@@ -340,56 +340,56 @@ const Player = () => {
           }`}
         >
           {/* Progress Bar */}
-          <div className="mb-4">
+          <div className="mb-3 sm:mb-4">
             <div 
-              className="relative h-2 bg-gray-600 rounded-full cursor-pointer"
+              className="relative h-3 sm:h-2 bg-gray-700 rounded-full cursor-pointer"
               onClick={handleProgressClick}
             >
               {/* Buffered indicator */}
               <div 
-                className="absolute h-full bg-gray-500 rounded-full"
+                className="absolute h-full bg-gray-600 rounded-full"
                 style={{ width: `${buffered}%` }}
               />
               
               {/* Progress indicator */}
               <div 
-                className="absolute h-full bg-primary-600 rounded-full"
+                className="absolute h-full bg-gradient-to-r from-red-500 to-purple-600 rounded-full shadow-lg"
                 style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
               />
               
               {/* Seek handle */}
               <div 
-                className="absolute w-4 h-4 bg-white rounded-full -mt-1 -ml-2 shadow-lg"
+                className="absolute w-5 h-5 sm:w-4 sm:h-4 bg-white rounded-full -mt-1 -ml-2 shadow-xl border-2 border-red-500"
                 style={{ left: `${duration ? (currentTime / duration) * 100 : 0}%` }}
               />
             </div>
           </div>
 
           {/* Control Buttons */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+            <div className="flex items-center space-x-3 sm:space-x-4">
               {/* Play/Pause */}
               <button
                 onClick={togglePlay}
-                className="text-white hover:text-primary-400 transition-colors"
+                className="text-white hover:text-red-400 transition-all duration-200 bg-black/30 p-2 rounded-full hover:bg-red-600/30"
               >
                 {isPlaying ? (
-                  <PauseIcon className="h-8 w-8" />
+                  <PauseIcon className="h-8 w-8 sm:h-6 sm:w-6" />
                 ) : (
-                  <PlayIcon className="h-8 w-8" />
+                  <PlayIcon className="h-8 w-8 sm:h-6 sm:w-6" />
                 )}
               </button>
 
-              {/* Volume */}
-              <div className="flex items-center space-x-2">
+              {/* Volume - Hide on small screens */}
+              <div className="hidden sm:flex items-center space-x-2">
                 <button
                   onClick={toggleMute}
-                  className="text-white hover:text-primary-400 transition-colors"
+                  className="text-white hover:text-red-400 transition-colors"
                 >
                   {isMuted || volume === 0 ? (
-                    <SpeakerXMarkIcon className="h-6 w-6" />
+                    <SpeakerXMarkIcon className="h-5 w-5" />
                   ) : (
-                    <SpeakerWaveIcon className="h-6 w-6" />
+                    <SpeakerWaveIcon className="h-5 w-5" />
                   )}
                 </button>
                 
@@ -405,27 +405,39 @@ const Player = () => {
               </div>
 
               {/* Time */}
-              <div className="text-white text-sm font-mono">
+              <div className="text-white text-xs sm:text-sm font-mono bg-black/30 px-2 py-1 rounded">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
-              {/* Movie title */}
-              <div className="text-white text-sm">
-                <span className="font-medium">{movie.title}</span>
-                {movie.year && <span className="text-gray-300 ml-2">({movie.year})</span>}
+            <div className="flex items-center justify-between sm:justify-end space-x-3 sm:space-x-4">
+              {/* Mobile volume button */}
+              <button
+                onClick={toggleMute}
+                className="sm:hidden text-white hover:text-red-400 transition-colors bg-black/30 p-2 rounded-full"
+              >
+                {isMuted || volume === 0 ? (
+                  <SpeakerXMarkIcon className="h-5 w-5" />
+                ) : (
+                  <SpeakerWaveIcon className="h-5 w-5" />
+                )}
+              </button>
+
+              {/* Movie title - Truncate on mobile */}
+              <div className="text-white text-xs sm:text-sm flex-1 sm:flex-none">
+                <span className="font-medium truncate block sm:inline">{movie.title}</span>
+                {movie.year && <span className="text-gray-300 ml-1 hidden sm:inline">({movie.year})</span>}
               </div>
 
               {/* Fullscreen */}
               <button
                 onClick={toggleFullscreen}
-                className="text-white hover:text-primary-400 transition-colors"
+                className="text-white hover:text-red-400 transition-colors bg-black/30 p-2 rounded-full hover:bg-red-600/30"
               >
                 {isFullscreen ? (
-                  <ArrowsPointingInIcon className="h-6 w-6" />
+                  <ArrowsPointingInIcon className="h-5 w-5" />
                 ) : (
-                  <ArrowsPointingOutIcon className="h-6 w-6" />
+                  <ArrowsPointingOutIcon className="h-5 w-5" />
                 )}
               </button>
             </div>
@@ -441,22 +453,22 @@ const Player = () => {
       </div>
 
       {/* Movie details */}
-      <div className="mt-6 bg-white rounded-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{movie.title}</h1>
-        <div className="flex items-center space-x-4 text-gray-600">
-          {movie.year && <span>{movie.year}</span>}
-          {movie.duration && <span>{formatTime(movie.duration)}</span>}
-          <span className="capitalize">{movie.status}</span>
+      <div className="mt-6 bg-gradient-to-br from-gray-900 to-black rounded-xl p-4 sm:p-6 border border-gray-800 shadow-2xl">
+        <h1 className="text-xl sm:text-2xl font-bold text-white mb-3">{movie.title}</h1>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-gray-300 text-sm sm:text-base">
+          {movie.year && <span className="bg-red-600 text-white px-2 py-1 rounded-full text-xs">{movie.year}</span>}
+          {movie.duration && <span>🕒 {formatTime(movie.duration)}</span>}
+          <span className="capitalize bg-purple-600 text-white px-2 py-1 rounded-full text-xs">{movie.status}</span>
         </div>
         
         {/* Keyboard shortcuts help */}
-        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-medium text-gray-900 mb-2">Keyboard Shortcuts</h3>
-          <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-            <div><kbd className="bg-white px-2 py-1 rounded">Space</kbd> Play/Pause</div>
-            <div><kbd className="bg-white px-2 py-1 rounded">←/→</kbd> Seek ±10s</div>
-            <div><kbd className="bg-white px-2 py-1 rounded">M</kbd> Mute/Unmute</div>
-            <div><kbd className="bg-white px-2 py-1 rounded">F</kbd> Fullscreen</div>
+        <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg border border-gray-700">
+          <h3 className="font-semibold text-red-300 mb-2 text-sm sm:text-base">⌨️ Soul Commands</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-gray-300">
+            <div><kbd className="bg-black border border-red-500 px-2 py-1 rounded text-red-300">Space</kbd> Play/Pause</div>
+            <div><kbd className="bg-black border border-red-500 px-2 py-1 rounded text-red-300">←/→</kbd> Seek ±10s</div>
+            <div><kbd className="bg-black border border-red-500 px-2 py-1 rounded text-red-300">M</kbd> Mute/Unmute</div>
+            <div><kbd className="bg-black border border-red-500 px-2 py-1 rounded text-red-300">F</kbd> Fullscreen</div>
           </div>
         </div>
       </div>

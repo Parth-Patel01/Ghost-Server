@@ -162,7 +162,9 @@ const Upload = () => {
 
     for (let i = 0; i < chunks.length; i += concurrency) {
       // Check if upload was paused or cancelled
-      if (abortController.signal.aborted) {
+      const currentUpload = uploads.find(u => u.id === uploadId)
+      if (abortController.signal.aborted || (currentUpload && currentUpload.isPaused)) {
+        console.log('Upload stopped:', currentUpload?.isPaused ? 'paused' : 'cancelled')
         break
       }
 
@@ -301,12 +303,7 @@ const Upload = () => {
   }
 
   const pauseUpload = (uploadId) => {
-    const controller = uploadControllers.current.get(uploadId)
-    if (controller) {
-      controller.abort()
-      uploadControllers.current.delete(uploadId)
-    }
-
+    // Just set the upload status to paused, don't abort the controller yet
     updateUpload(uploadId, {
       status: 'paused',
       isPaused: true
@@ -357,7 +354,9 @@ const Upload = () => {
 
     for (let i = 0; i < remainingChunks.length; i += concurrency) {
       // Check if upload was paused or cancelled
-      if (abortController.signal.aborted) {
+      const currentUpload = uploads.find(u => u.id === uploadId)
+      if (abortController.signal.aborted || (currentUpload && currentUpload.isPaused)) {
+        console.log('Continue upload stopped:', currentUpload?.isPaused ? 'paused' : 'cancelled')
         break
       }
 
@@ -428,26 +427,29 @@ const Upload = () => {
          <div className="mb-8 sm:mb-12 text-center">
            <div className="flex items-center justify-center mb-4">
              <div className="relative">
-               <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 to-purple-800 rounded-full shadow-xl">
-                 <span className="text-white font-bold text-2xl">🌊</span>
+               <div className="flex items-center justify-center w-20 h-20 bg-gradient-to-br from-red-600 via-purple-700 to-black rounded-2xl shadow-2xl rotate-45 transform">
+                 <div className="bg-gradient-to-br from-white to-red-200 rounded-full w-12 h-12 flex items-center justify-center -rotate-45 shadow-inner">
+                   <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-purple-600 rounded-full animate-pulse"></div>
+                 </div>
                </div>
-               <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full animate-pulse flex items-center justify-center">
+               <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-red-500 to-purple-500 rounded-full animate-bounce opacity-80 flex items-center justify-center">
                  <span className="text-white text-xs">✨</span>
                </div>
+               <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-red-400 rounded-full animate-pulse"></div>
              </div>
            </div>
-           <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-red-300 to-purple-400 mb-3">
-             SoulStream Portal
-           </h1>
-           <p className="text-lg sm:text-xl text-gray-300 mb-2">
-             🌟 Feed Your Souls to the Eternal Stream 🌟
-           </p>
-           <p className="text-sm sm:text-base text-gray-400 mb-1">
-             Drag and drop video files or click to select. Supported formats: MP4, MKV, AVI, MOV, WebM
-           </p>
-           <p className="text-xs sm:text-sm text-gray-500">
-             Where souls flow through eternity • Background uploads • Pause/Resume anytime
-           </p>
+                      <h1 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-red-300 to-purple-400 mb-2">
+              SoulStream Portal
+            </h1>
+            <p className="text-base sm:text-lg text-gray-300 mb-2">
+              🌟 Feed Your Souls to the Eternal Stream
+            </p>
+            <p className="text-xs sm:text-sm text-gray-400 mb-1">
+              Drag and drop video files or click to select. Supported: MP4, MKV, AVI, MOV, WebM
+            </p>
+            <p className="text-xs text-gray-500">
+              Background uploads • Pause/Resume • Up to 4GB
+            </p>
          </div>
 
       {/* Upload Zone */}
@@ -459,27 +461,27 @@ const Upload = () => {
         onClick={() => fileInputRef.current?.click()}
       >
         <div className="relative z-10">
-          <div className="flex items-center justify-center mb-4">
+          <div className="flex items-center justify-center mb-3">
             <div className="relative">
-              <CloudArrowUpIcon className="h-16 w-16 sm:h-20 sm:w-20 text-red-400 animate-bounce" />
+              <CloudArrowUpIcon className="h-12 w-12 sm:h-16 sm:w-16 text-red-400 animate-bounce" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-purple-500 rounded-full animate-pulse opacity-60"></div>
+                <div className="w-6 h-6 bg-gradient-to-r from-red-500 to-purple-500 rounded-full animate-pulse opacity-60"></div>
               </div>
             </div>
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-purple-300 mb-3">
-            🌊 Soul Portal Awaits 🌊
+          <p className="text-lg sm:text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-purple-300 mb-2">
+            🌊 Soul Portal Awaits
           </p>
-          <p className="text-base sm:text-lg font-medium text-gray-200 mb-2">
+          <p className="text-sm sm:text-base font-medium text-gray-200 mb-2">
             Drop your souls here to join the eternal stream
           </p>
-          <p className="text-sm text-gray-400 mb-3">
+          <p className="text-xs text-gray-400 mb-2">
             Or click to select from your collection
           </p>
-          <div className="flex items-center justify-center space-x-4 text-xs text-gray-500">
-            <span>🎬 Up to 4GB</span>
+          <div className="flex items-center justify-center space-x-3 text-xs text-gray-500">
+            <span>🎬 4GB max</span>
             <span>⏸️ Pause/Resume</span>
-            <span>📱 Background Support</span>
+            <span>📱 Background</span>
           </div>
         </div>
         <input
@@ -495,11 +497,11 @@ const Upload = () => {
       {/* Upload Progress */}
               {uploads.length > 0 && (
           <div className="mt-8 sm:mt-12">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-purple-400 to-red-400 mb-2">
-                🌊 Souls Flowing Through Eternity 🌊
+            <div className="text-center mb-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-purple-400 to-red-400 mb-1">
+                🌊 Souls Flowing Through Eternity
               </h2>
-              <p className="text-sm text-gray-400">
+              <p className="text-xs text-gray-400">
                 {uploads.length} soul{uploads.length !== 1 ? 's' : ''} in the stream
               </p>
             </div>
