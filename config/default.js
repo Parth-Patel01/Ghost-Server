@@ -20,7 +20,7 @@ module.exports = {
     storage: {
         mediaPath: '/media/movies',
         tempPath: '/tmp/pi-media-uploads',
-        dbPath: '/home/pi/media.db'
+        dbPath: process.env.HOME + '/media.db'
     },
 
     // Redis configuration for job queue
