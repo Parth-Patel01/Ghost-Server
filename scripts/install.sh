@@ -1,0 +1,415 @@
+#!/bin/bash
+
+# Pi Media Server Installation Script
+# This script sets up the complete local media streaming service on Raspberry Pi
+
+set -e  # Exit on any error
+
+# Configuration
+INSTALL_DIR="/home/pi/pi-media-server"
+MEDIA_DIR="/media/movies"
+DB_PATH="/home/pi/media.db"
+SERVICE_USER="pi"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if running as root
+check_user() {
+    if [[ $EUID -eq 0 ]]; then
+        print_error "This script should not be run as root!"
+        print_error "Please run as the pi user: ./scripts/install.sh"
+        exit 1
+    fi
+}
+
+# Check if we're on a Raspberry Pi
+check_platform() {
+    if ! grep -q "Raspberry Pi" /proc/cpuinfo 2>/dev/null; then
+        print_warning "This script is designed for Raspberry Pi, but can work on other Linux systems"
+        read -p "Continue anyway? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+}
+
+# Update system packages
+update_system() {
+    print_status "Updating system packages..."
+    sudo apt update
+    sudo apt upgrade -y
+    print_success "System updated"
+}
+
+# Install required system packages
+install_dependencies() {
+    print_status "Installing system dependencies..."
+    
+    # Essential packages
+    sudo apt install -y \
+        curl \
+        wget \
+        git \
+        build-essential \
+        python3 \
+        python3-pip \
+        ffmpeg \
+        redis-server \
+        nginx \
+        sqlite3 \
+        htop \
+        tree
+    
+    print_success "System dependencies installed"
+}
+
+# Install Node.js (using NodeSource repository for latest LTS)
+install_nodejs() {
+    print_status "Installing Node.js..."
+    
+    # Check if Node.js is already installed
+    if command -v node &> /dev/null; then
+        NODE_VERSION=$(node --version)
+        print_status "Node.js $NODE_VERSION is already installed"
+        
+        # Check if version is sufficient (v18+)
+        if [[ $(node --version | cut -d'v' -f2 | cut -d'.' -f1) -ge 18 ]]; then
+            print_success "Node.js version is sufficient"
+            return
+        else
+            print_warning "Node.js version is too old, updating..."
+        fi
+    fi
+    
+    # Install Node.js LTS
+    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+    sudo apt install -y nodejs
+    
+    # Verify installation
+    NODE_VERSION=$(node --version)
+    NPM_VERSION=$(npm --version)
+    print_success "Node.js $NODE_VERSION and npm $NPM_VERSION installed"
+}
+
+# Setup project directory and install dependencies
+setup_project() {
+    print_status "Setting up project..."
+    
+    # Create project directory if it doesn't exist
+    if [ ! -d "$INSTALL_DIR" ]; then
+        print_status "Creating project directory at $INSTALL_DIR"
+        mkdir -p "$INSTALL_DIR"
+    fi
+    
+    # Copy project files
+    print_status "Copying project files..."
+    cp -r . "$INSTALL_DIR/"
+    cd "$INSTALL_DIR"
+    
+    # Install backend dependencies
+    print_status "Installing backend dependencies..."
+    npm install
+    
+    # Install frontend dependencies and build
+    print_status "Installing frontend dependencies..."
+    cd frontend
+    npm install
+    
+    print_status "Building frontend..."
+    npm run build
+    cd ..
+    
+    print_success "Project setup complete"
+}
+
+# Setup storage directories
+setup_storage() {
+    print_status "Setting up storage directories..."
+    
+    # Create media directory
+    sudo mkdir -p "$MEDIA_DIR"
+    sudo chown $SERVICE_USER:$SERVICE_USER "$MEDIA_DIR"
+    sudo chmod 755 "$MEDIA_DIR"
+    
+    # Create temp upload directory
+    sudo mkdir -p /tmp/pi-media-uploads
+    sudo chown $SERVICE_USER:$SERVICE_USER /tmp/pi-media-uploads
+    sudo chmod 755 /tmp/pi-media-uploads
+    
+    # Create database directory
+    mkdir -p "$(dirname $DB_PATH)"
+    
+    print_success "Storage directories created"
+}
+
+# Configure Redis
+configure_redis() {
+    print_status "Configuring Redis..."
+    
+    # Enable and start Redis
+    sudo systemctl enable redis-server
+    sudo systemctl start redis-server
+    
+    # Test Redis connection
+    if redis-cli ping | grep -q "PONG"; then
+        print_success "Redis is running"
+    else
+        print_error "Redis failed to start"
+        exit 1
+    fi
+}
+
+# Setup systemd services
+setup_services() {
+    print_status "Setting up systemd services..."
+    
+    # Copy service files
+    sudo cp scripts/services/*.service /etc/systemd/system/
+    
+    # Update service file paths if different from default
+    if [ "$INSTALL_DIR" != "/home/pi/pi-media-server" ]; then
+        print_status "Updating service file paths..."
+        sudo sed -i "s|/home/pi/pi-media-server|$INSTALL_DIR|g" /etc/systemd/system/pi-media-*.service
+    fi
+    
+    # Reload systemd and enable services
+    sudo systemctl daemon-reload
+    sudo systemctl enable pi-media-upload.service
+    sudo systemctl enable pi-media-stream.service
+    sudo systemctl enable pi-media-worker.service
+    
+    print_success "Systemd services configured"
+}
+
+# Configure nginx reverse proxy (optional)
+configure_nginx() {
+    print_status "Configuring nginx..."
+    
+    # Create nginx configuration
+    sudo tee /etc/nginx/sites-available/pi-media-server > /dev/null <<EOF
+server {
+    listen 80;
+    server_name _;
+    
+    # Media files (direct serving)
+    location ~* ^/[^/]+\.(mp4|m3u8|ts|jpg|jpeg|png)$ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        
+        # Enable byte-range requests
+        proxy_set_header Range \$http_range;
+        proxy_set_header If-Range \$http_if_range;
+        
+        # Caching for media files
+        expires 1d;
+        add_header Cache-Control "public, immutable";
+    }
+    
+    # API requests (upload server)
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        
+        # Increase timeout for large uploads
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+        client_max_body_size 5G;
+    }
+    
+    # Frontend (upload server serves built React app)
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+}
+EOF
+    
+    # Enable the site
+    sudo ln -sf /etc/nginx/sites-available/pi-media-server /etc/nginx/sites-enabled/
+    sudo rm -f /etc/nginx/sites-enabled/default
+    
+    # Test nginx configuration
+    if sudo nginx -t; then
+        sudo systemctl enable nginx
+        sudo systemctl restart nginx
+        print_success "Nginx configured successfully"
+    else
+        print_error "Nginx configuration failed"
+        exit 1
+    fi
+}
+
+# Initialize database
+init_database() {
+    print_status "Initializing database..."
+    
+    cd "$INSTALL_DIR"
+    node -e "
+        const Database = require('./src/db/database');
+        const db = new Database('$DB_PATH');
+        db.initialize().then(() => {
+            console.log('Database initialized successfully');
+            process.exit(0);
+        }).catch((err) => {
+            console.error('Database initialization failed:', err);
+            process.exit(1);
+        });
+    "
+    
+    print_success "Database initialized"
+}
+
+# Start services
+start_services() {
+    print_status "Starting services..."
+    
+    # Start all services
+    sudo systemctl start pi-media-upload.service
+    sudo systemctl start pi-media-stream.service
+    sudo systemctl start pi-media-worker.service
+    
+    # Wait a moment for services to start
+    sleep 3
+    
+    # Check service status
+    if sudo systemctl is-active --quiet pi-media-upload.service; then
+        print_success "Upload service started"
+    else
+        print_error "Upload service failed to start"
+        sudo systemctl status pi-media-upload.service
+    fi
+    
+    if sudo systemctl is-active --quiet pi-media-stream.service; then
+        print_success "Streaming service started"
+    else
+        print_error "Streaming service failed to start"
+        sudo systemctl status pi-media-stream.service
+    fi
+    
+    if sudo systemctl is-active --quiet pi-media-worker.service; then
+        print_success "Worker service started"
+    else
+        print_error "Worker service failed to start"
+        sudo systemctl status pi-media-worker.service
+    fi
+}
+
+# Create a simple test file
+create_test_info() {
+    print_status "Creating test information..."
+    
+    # Get the Pi's IP address
+    PI_IP=$(hostname -I | awk '{print $1}')
+    
+    cat > "$INSTALL_DIR/SERVER_INFO.txt" <<EOF
+Pi Media Server Installation Complete!
+
+Server Information:
+==================
+Upload Interface: http://$PI_IP:3000
+Media Streaming:   http://$PI_IP:80
+Installation Dir:  $INSTALL_DIR
+Media Directory:   $MEDIA_DIR
+Database:          $DB_PATH
+
+Service Management:
+==================
+View status:       sudo systemctl status pi-media-*
+Start services:    sudo systemctl start pi-media-*
+Stop services:     sudo systemctl stop pi-media-*
+Restart services:  sudo systemctl restart pi-media-*
+View logs:         sudo journalctl -u pi-media-upload -f
+
+Network Setup:
+==============
+1. Set static IP on your Pi (recommended: $PI_IP)
+2. Update router settings to reserve this IP
+3. Update config/default.js with your actual Pi IP
+4. Restart services after IP changes
+
+Troubleshooting:
+===============
+- Check logs: sudo journalctl -u pi-media-upload -f
+- Test Redis: redis-cli ping
+- Check ports: ss -tlnp | grep -E ':(80|3000|6379)'
+- Check ffmpeg: ffmpeg -version
+
+File Locations:
+==============
+- Logs: sudo journalctl -u pi-media-*
+- Config: $INSTALL_DIR/config/default.js
+- Services: /etc/systemd/system/pi-media-*.service
+EOF
+    
+    print_success "Server info created at $INSTALL_DIR/SERVER_INFO.txt"
+}
+
+# Main installation function
+main() {
+    echo "=========================================="
+    echo "    Pi Media Server Installation"
+    echo "=========================================="
+    echo
+    
+    check_user
+    check_platform
+    
+    print_status "Starting installation process..."
+    
+    update_system
+    install_dependencies
+    install_nodejs
+    setup_project
+    setup_storage
+    configure_redis
+    setup_services
+    configure_nginx
+    init_database
+    start_services
+    create_test_info
+    
+    echo
+    echo "=========================================="
+    print_success "Installation completed successfully!"
+    echo "=========================================="
+    echo
+    print_status "Next steps:"
+    echo "1. Check server status: sudo systemctl status pi-media-*"
+    echo "2. Visit http://$(hostname -I | awk '{print $1}'):3000 to access the upload interface"
+    echo "3. Read $INSTALL_DIR/SERVER_INFO.txt for detailed information"
+    echo
+    print_warning "Remember to:"
+    echo "- Set up static IP on your Pi"
+    echo "- Update router settings to reserve the IP"
+    echo "- Configure your actual network settings in config/default.js"
+}
+
+# Run main function
+main "$@"

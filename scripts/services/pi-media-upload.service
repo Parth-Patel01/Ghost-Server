@@ -1,0 +1,29 @@
+[Unit]
+Description=Pi Media Server - Upload Service
+After=network.target redis.target
+Wants=redis.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/pi-media-server
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=10
+
+# Environment variables
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=512M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pi-media-upload
+
+[Install]
+WantedBy=multi-user.target
