@@ -54,9 +54,9 @@ module.exports = {
 
     // Network configuration
     network: {
-        piIp: '192.168.1.50', // Default Pi IP - should be updated based on actual network
-        uploadUrl: 'http://192.168.1.50:3000',
-        streamingUrl: 'http://192.168.1.50:8080'
+        piIp: '192.168.18.3', // Default Pi IP - should be updated based on actual network
+        uploadUrl: 'http://192.168.18.3:3000',
+        streamingUrl: 'http://192.168.18.3:8080'
     },
 
     // Development settings
