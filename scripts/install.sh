@@ -6,10 +6,10 @@
 set -e  # Exit on any error
 
 # Configuration
-INSTALL_DIR="/home/pi/pi-media-server"
+INSTALL_DIR="$HOME/pi-media-server"
 MEDIA_DIR="/media/movies"
-DB_PATH="/home/pi/media.db"
-SERVICE_USER="pi"
+DB_PATH="$HOME/media.db"
+SERVICE_USER="$USER"
 
 # Colors for output
 RED='\033[0;31m'
@@ -38,9 +38,17 @@ print_error() {
 check_user() {
     if [[ $EUID -eq 0 ]]; then
         print_error "This script should not be run as root!"
-        print_error "Please run as the pi user: ./scripts/install.sh"
+        print_error "Please run as your regular user: ./scripts/install.sh"
         exit 1
     fi
+    
+    # Ensure we're running as a regular user with home directory
+    if [[ -z "$HOME" ]]; then
+        print_error "HOME environment variable is not set!"
+        exit 1
+    fi
+    
+    print_status "Running as user: $USER (home: $HOME)"
 }
 
 # Check if we're on a Raspberry Pi
@@ -188,11 +196,11 @@ setup_services() {
     # Copy service files
     sudo cp scripts/services/*.service /etc/systemd/system/
     
-    # Update service file paths if different from default
-    if [ "$INSTALL_DIR" != "/home/pi/pi-media-server" ]; then
-        print_status "Updating service file paths..."
-        sudo sed -i "s|/home/pi/pi-media-server|$INSTALL_DIR|g" /etc/systemd/system/pi-media-*.service
-    fi
+    # Update service file paths for current user
+    print_status "Updating service file paths for user: $USER..."
+    sudo sed -i "s|/home/pi/pi-media-server|$INSTALL_DIR|g" /etc/systemd/system/pi-media-*.service
+    sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/pi-media-*.service
+    sudo sed -i "s|Group=pi|Group=$USER|g" /etc/systemd/system/pi-media-*.service
     
     # Reload systemd and enable services
     sudo systemctl daemon-reload
