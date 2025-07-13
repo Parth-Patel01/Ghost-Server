@@ -11,7 +11,7 @@ module.exports = {
     },
 
     media: {
-        port: 80,
+        port: 8080,
         host: '0.0.0.0',
         staticRoot: '/media/movies'
     },
@@ -56,7 +56,7 @@ module.exports = {
     network: {
         piIp: '192.168.1.50', // Default Pi IP - should be updated based on actual network
         uploadUrl: 'http://192.168.1.50:3000',
-        streamingUrl: 'http://192.168.1.50'
+        streamingUrl: 'http://192.168.1.50:8080'
     },
 
     // Development settings

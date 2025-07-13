@@ -277,7 +277,8 @@ install_dependencies() {
         htop \
         tree \
         lsof \
-        net-tools
+        net-tools \
+        jq
     
     print_success "System dependencies installed"
 }
@@ -538,6 +539,8 @@ start_services() {
     print_status "Starting services..."
     
     # Check if required ports are available
+    print_status "Checking required ports for services..."
+    
     if ! check_and_free_port 3000 "node"; then
         print_error "Cannot free port 3000 for upload service"
         exit 1
@@ -546,6 +549,16 @@ start_services() {
     if ! check_and_free_port 8080 "node"; then
         print_error "Cannot free port 8080 for stream service"
         exit 1
+    fi
+    
+    # Verify nginx is not using port 8080
+    print_status "Ensuring nginx is not conflicting with media server port 8080..."
+    if lsof -Pi :8080 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        print_warning "Port 8080 is in use, attempting to free it..."
+        if ! check_and_free_port 8080 "nginx"; then
+            print_error "Cannot free port 8080 for media server"
+            exit 1
+        fi
     fi
     
     # Start all services
@@ -557,25 +570,47 @@ start_services() {
     sleep 3
     
     # Check service status
+    print_status "Verifying services are running..."
+    
     if sudo systemctl is-active --quiet pi-media-upload.service; then
         print_success "Upload service started"
+        
+        # Test if upload service is responding
+        sleep 2
+        if curl -s -f http://localhost:3000/health > /dev/null 2>&1; then
+            print_success "Upload service is responding on port 3000"
+        else
+            print_warning "Upload service is running but not responding on port 3000"
+        fi
     else
         print_error "Upload service failed to start"
-        sudo systemctl status pi-media-upload.service
+        sudo systemctl status pi-media-upload.service --no-pager
     fi
     
     if sudo systemctl is-active --quiet pi-media-stream.service; then
         print_success "Streaming service started"
+        
+        # Test if streaming service is responding
+        sleep 2
+        if curl -s -f http://localhost:8080/health > /dev/null 2>&1; then
+            print_success "Streaming service is responding on port 8080"
+        else
+            print_warning "Streaming service is running but not responding on port 8080"
+            print_status "Checking streaming service logs..."
+            sudo journalctl -u pi-media-stream.service -n 10 --no-pager
+        fi
     else
         print_error "Streaming service failed to start"
-        sudo systemctl status pi-media-stream.service
+        sudo systemctl status pi-media-stream.service --no-pager
+        print_status "Streaming service logs:"
+        sudo journalctl -u pi-media-stream.service -n 20 --no-pager
     fi
     
     if sudo systemctl is-active --quiet pi-media-worker.service; then
         print_success "Worker service started"
     else
         print_error "Worker service failed to start"
-        sudo systemctl status pi-media-worker.service
+        sudo systemctl status pi-media-worker.service --no-pager
     fi
 }
 
@@ -592,7 +627,8 @@ Pi Media Server Installation Complete!
 Server Information:
 ==================
 Upload Interface: http://$PI_IP:3000
-Media Streaming:   http://$PI_IP:80
+Media Streaming:   http://$PI_IP:80 (via nginx proxy)
+Direct Media API:  http://$PI_IP:8080
 Installation Dir:  $INSTALL_DIR
 Media Directory:   $MEDIA_DIR
 Database:          $DB_PATH
@@ -616,8 +652,11 @@ Troubleshooting:
 ===============
 - Check logs: sudo journalctl -u pi-media-upload -f
 - Test Redis: redis-cli ping
-- Check ports: ss -tlnp | grep -E ':(80|3000|6379)'
+- Check ports: ss -tlnp | grep -E ':(80|3000|8080|6379)'
 - Check ffmpeg: ffmpeg -version
+- Test upload service: curl http://localhost:3000/health
+- Test streaming service: curl http://localhost:8080/health
+- Check nginx config: sudo nginx -t
 
 File Locations:
 ==============
