@@ -210,10 +210,10 @@ const Upload = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Upload Movies</h1>
-        <p className="text-gray-600">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Upload Movies</h1>
+        <p className="text-sm sm:text-base text-gray-600">
           Drag and drop video files or click to select. Supported formats: MP4, MKV, AVI, MOV, WebM
         </p>
       </div>
@@ -226,11 +226,11 @@ const Upload = () => {
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
       >
-        <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <p className="text-lg font-medium text-gray-700 mb-2">
+        <CloudArrowUpIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mb-3 sm:mb-4" />
+        <p className="text-base sm:text-lg font-medium text-gray-700 mb-2 px-2">
           Drop video files here, or click to select
         </p>
-        <p className="text-sm text-gray-500">
+        <p className="text-xs sm:text-sm text-gray-500 px-2">
           Maximum file size: 4GB per file
         </p>
         <input
@@ -245,23 +245,25 @@ const Upload = () => {
 
       {/* Upload Progress */}
       {uploads.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload Progress</h2>
-          <div className="space-y-4">
+        <div className="mt-6 sm:mt-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Upload Progress</h2>
+          <div className="space-y-3 sm:space-y-4">
             {uploads.map((upload) => (
-              <div key={upload.id} className="card p-4">
+              <div key={upload.id} className="card p-3 sm:p-4">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-start space-x-3">
-                    <FilmIcon className="h-6 w-6 text-primary-600 mt-1" />
-                    <div>
-                      <h3 className="font-medium text-gray-900">
+                  <div className="flex items-start space-x-2 sm:space-x-3 flex-1 min-w-0">
+                    <FilmIcon className="h-5 w-5 sm:h-6 sm:w-6 text-primary-600 mt-1 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-gray-900 text-sm sm:text-base truncate">
                         {upload.movieInfo?.title || upload.file.name}
                       </h3>
-                      <p className="text-sm text-gray-500">
-                        {formatFileSize(upload.file.size)} • {getStatusText(upload.status)}
+                      <p className="text-xs sm:text-sm text-gray-500 flex flex-wrap">
+                        <span>{formatFileSize(upload.file.size)}</span>
+                        <span className="mx-1">•</span>
+                        <span>{getStatusText(upload.status)}</span>
                       </p>
                       {upload.movieInfo?.year && (
-                        <p className="text-sm text-gray-400">
+                        <p className="text-xs sm:text-sm text-gray-400">
                           Year: {upload.movieInfo.year}
                         </p>
                       )}
@@ -271,9 +273,9 @@ const Upload = () => {
                   {upload.status === 'error' ? (
                     <button
                       onClick={() => removeUpload(upload.id)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1"
                     >
-                      <XMarkIcon className="h-5 w-5" />
+                      <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
                   ) : null}
                 </div>
@@ -286,13 +288,13 @@ const Upload = () => {
                   />
                 </div>
 
-                <div className="flex justify-between items-center text-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs sm:text-sm space-y-1 sm:space-y-0">
                   <span className={getStatusColor(upload.status)}>
                     {upload.progress > 0 ? `${Math.round(upload.progress)}%` : '0%'}
                   </span>
                   
                   {upload.error && (
-                    <span className="text-red-600 text-xs">
+                    <span className="text-red-600 text-xs break-words">
                       {upload.error}
                     </span>
                   )}

@@ -100,23 +100,23 @@ const Library = () => {
   }
 
   return (
-    <div>
+    <div className="px-4 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Movie Library</h1>
-          <p className="text-gray-600 mt-1">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 sm:mb-8">
+        <div className="mb-4 sm:mb-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Movie Library</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             {movies.length} movie{movies.length !== 1 ? 's' : ''} in your collection
           </p>
         </div>
 
         {/* Filter */}
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2 sm:space-x-2 sm:gap-0">
           {['all', 'ready', 'processing', 'uploading', 'error'].map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors ${
                 filter === status
                   ? 'bg-primary-600 text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -153,7 +153,7 @@ const Library = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
           {filteredMovies.map((movie) => (
             <div key={movie.id} className="group relative">
               <div className="card overflow-hidden hover:shadow-lg transition-shadow duration-200">
@@ -173,11 +173,11 @@ const Library = () => {
                   
                   {/* Fallback poster */}
                   <div className={`${movie.posterUrl ? 'hidden' : 'flex'} w-full h-full items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200`}>
-                    <PlayIcon className="h-12 w-12 text-primary-600" />
+                    <PlayIcon className="h-8 w-8 sm:h-12 sm:w-12 text-primary-600" />
                   </div>
 
                   {/* Status badge */}
-                  <div className="absolute top-2 left-2">
+                  <div className="absolute top-1 sm:top-2 left-1 sm:left-2">
                     {getStatusBadge(movie.status)}
                   </div>
 
@@ -187,36 +187,36 @@ const Library = () => {
                       to={`/player/${movie.id}`}
                       className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
                     >
-                      <PlayIcon className="h-12 w-12 text-white" />
+                      <PlayIcon className="h-8 w-8 sm:h-12 sm:w-12 text-white" />
                     </Link>
                   )}
 
                   {/* Delete button */}
                   <button
                     onClick={() => deleteMovie(movie.id)}
-                    className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-700"
+                    className="absolute top-1 sm:top-2 right-1 sm:right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-700"
                   >
-                    <TrashIcon className="h-4 w-4" />
+                    <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
                   </button>
                 </div>
 
                 {/* Movie info */}
-                <div className="p-3">
-                  <h3 className="font-medium text-gray-900 truncate" title={movie.title}>
+                <div className="p-2 sm:p-3">
+                  <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base" title={movie.title}>
                     {movie.title}
                   </h3>
                   
-                  <div className="flex items-center justify-between mt-1 text-sm text-gray-500">
+                  <div className="flex items-center justify-between mt-1 text-xs sm:text-sm text-gray-500">
                     {movie.year && (
                       <div className="flex items-center">
-                        <CalendarIcon className="h-4 w-4 mr-1" />
+                        <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                         {movie.year}
                       </div>
                     )}
                     
                     {movie.duration && (
                       <div className="flex items-center">
-                        <ClockIcon className="h-4 w-4 mr-1" />
+                        <ClockIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                         {formatDuration(movie.duration)}
                       </div>
                     )}
@@ -243,8 +243,8 @@ const Library = () => {
                   {/* Error message */}
                   {movie.status === 'error' && movie.error_message && (
                     <p className="text-xs text-red-600 mt-1" title={movie.error_message}>
-                      {movie.error_message.length > 50 
-                        ? movie.error_message.substring(0, 50) + '...'
+                      {movie.error_message.length > 40 
+                        ? movie.error_message.substring(0, 40) + '...'
                         : movie.error_message
                       }
                     </p>

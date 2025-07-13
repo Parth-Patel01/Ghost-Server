@@ -49,14 +49,25 @@ class UploadServer {
     }
 
     setupRoutes() {
+        // Setup multer for chunk uploads
+        const upload = multer({
+            storage: multer.memoryStorage(),
+            limits: {
+                fileSize: config.upload.chunkSize * 2 // Allow some overhead
+            }
+        });
+
         // API Routes
         this.app.post('/api/upload/start', this.startUpload.bind(this));
-        this.app.post('/api/upload/chunk', this.uploadChunk.bind(this));
+        this.app.post('/api/upload/chunk', upload.single('chunk'), this.uploadChunk.bind(this));
         this.app.post('/api/upload/complete', this.completeUpload.bind(this));
         this.app.get('/api/movies', this.getMovies.bind(this));
         this.app.get('/api/movies/:id', this.getMovie.bind(this));
         this.app.delete('/api/movies/:id', this.deleteMovie.bind(this));
         this.app.get('/api/status', this.getServerStatus.bind(this));
+        this.app.get('/api/health', (req, res) => {
+            res.json({ status: 'healthy', service: 'upload-server' });
+        });
 
         // Serve frontend for all other routes
         this.app.get('*', (req, res) => {
@@ -377,16 +388,6 @@ class UploadServer {
 
             // Clean up expired sessions on startup
             await this.db.cleanupExpiredSessions();
-
-            // Setup multer for chunk uploads
-            const upload = multer({
-                storage: multer.memoryStorage(),
-                limits: {
-                    fileSize: config.upload.chunkSize * 2 // Allow some overhead
-                }
-            });
-
-            this.app.post('/api/upload/chunk', upload.single('chunk'), this.uploadChunk.bind(this));
 
             // Start server
             this.server = this.app.listen(config.upload.port, config.upload.host, () => {
