@@ -7,6 +7,8 @@ const Upload = () => {
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef(null)
   const uploadControllers = useRef(new Map()) // For pause/resume control
+  const uploadsRef = useRef([])
+  useEffect(() => { uploadsRef.current = uploads }, [uploads])
 
   // Background upload support - restore state on page load
   useEffect(() => {
@@ -161,8 +163,8 @@ const Upload = () => {
     const concurrency = 3
 
     for (let i = 0; i < chunks.length; i += concurrency) {
-      // Check if upload was paused or cancelled
-      const currentUpload = uploads.find(u => u.id === uploadId)
+      // Always check latest state
+      const currentUpload = uploadsRef.current.find(u => u.id === uploadId)
       if (abortController.signal.aborted || (currentUpload && currentUpload.isPaused)) {
         console.log('Upload stopped:', currentUpload?.isPaused ? 'paused' : 'cancelled')
         break
@@ -365,8 +367,7 @@ const Upload = () => {
     const concurrency = 3
 
     for (let i = 0; i < remainingChunks.length; i += concurrency) {
-      // Check if upload was paused or cancelled
-      const currentUpload = uploads.find(u => u.id === uploadId)
+      const currentUpload = uploadsRef.current.find(u => u.id === uploadId)
       if (abortController.signal.aborted || (currentUpload && currentUpload.isPaused)) {
         console.log('Continue upload stopped:', currentUpload?.isPaused ? 'paused' : 'cancelled')
         break
@@ -436,27 +437,16 @@ const Upload = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
+    <div className="max-w-3xl mx-auto px-2 sm:px-4 py-10">
       {/* Header */}
       <div className="mb-10 text-center">
-        <div className="flex justify-center mb-4">
-          <div className="relative">
-            <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 via-purple-700 to-black rounded-2xl shadow-2xl rotate-45 transform">
-              <div className="bg-gradient-to-br from-white to-red-200 rounded-full w-9 h-9 flex items-center justify-center -rotate-45 shadow-inner">
-                <CloudArrowUpIcon className="w-6 h-6 text-red-500" />
-              </div>
-            </div>
-            <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-red-500 to-purple-500 rounded-full animate-bounce opacity-80"></div>
-            <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-red-400 rounded-full animate-pulse"></div>
-          </div>
-        </div>
         <h1 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-red-300 to-purple-400 mb-2">Upload a Soul</h1>
         <p className="text-gray-300 text-base sm:text-lg max-w-xl mx-auto">Drag and drop your movie files below, or click to browse. SoulStream supports large files, chunked uploads, and background processing. Your journey begins here.</p>
       </div>
       {/* Upload Area */}
       <div
         className={
-          `relative flex flex-col items-center justify-center border-4 border-dashed rounded-2xl py-16 px-6 mb-10 transition-all duration-200 cursor-pointer ` +
+          `relative flex flex-col items-center justify-center border-4 border-dashed rounded-2xl py-12 sm:py-16 px-4 sm:px-6 mb-10 transition-all duration-200 cursor-pointer ` +
           (isDragOver ? 'border-gradient-to-r from-purple-500 to-red-500 bg-black/60' : 'border-gray-700 bg-gradient-to-br from-black via-gray-900 to-gray-950')
         }
         onDragOver={handleDragOver}
@@ -475,7 +465,6 @@ const Upload = () => {
           className="hidden"
           onChange={handleFileSelect}
         />
-        <FilmIcon className="w-14 h-14 text-purple-400 mb-4" />
         <p className="text-lg text-gray-200 font-semibold mb-2">Drop your movie files here</p>
         <p className="text-gray-400 text-sm">or click to select files</p>
       </div>
@@ -483,16 +472,15 @@ const Upload = () => {
       {uploads.length > 0 && (
         <div className="space-y-6">
           {uploads.map(upload => (
-            <div key={upload.id} className="bg-gradient-to-br from-gray-900 via-gray-950 to-black rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2">
-                  <FilmIcon className="w-7 h-7 text-purple-400" />
-                  <span className="font-semibold text-gray-100 truncate">{upload.file.name}</span>
-                  <span className="ml-2 text-xs text-gray-400">{(upload.file.size / (1024*1024)).toFixed(2)} MB</span>
-                  {upload.status === 'uploading' && <span className="ml-2 px-2 py-0.5 rounded bg-blue-900 text-blue-300 text-xs">Uploading</span>}
-                  {upload.status === 'processing' && <span className="ml-2 px-2 py-0.5 rounded bg-yellow-900 text-yellow-300 text-xs">Processing</span>}
-                  {upload.status === 'paused' && <span className="ml-2 px-2 py-0.5 rounded bg-gray-800 text-gray-300 text-xs">Paused</span>}
-                  {upload.status === 'error' && <span className="ml-2 px-2 py-0.5 rounded bg-red-900 text-red-300 text-xs">Error</span>}
+            <div key={upload.id} className="bg-gradient-to-br from-gray-900 via-gray-950 to-black rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+              <div className="flex-1 min-w-0 w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 w-full">
+                  <span className="font-semibold text-gray-100 truncate w-full">{upload.file.name}</span>
+                  <span className="ml-0 sm:ml-2 text-xs text-gray-400">{(upload.file.size / (1024*1024)).toFixed(2)} MB</span>
+                  {upload.status === 'uploading' && <span className="ml-0 sm:ml-2 px-2 py-0.5 rounded bg-blue-900 text-blue-300 text-xs">Uploading</span>}
+                  {upload.status === 'processing' && <span className="ml-0 sm:ml-2 px-2 py-0.5 rounded bg-yellow-900 text-yellow-300 text-xs">Processing</span>}
+                  {upload.status === 'paused' && <span className="ml-0 sm:ml-2 px-2 py-0.5 rounded bg-gray-800 text-gray-300 text-xs">Paused</span>}
+                  {upload.status === 'error' && <span className="ml-0 sm:ml-2 px-2 py-0.5 rounded bg-red-900 text-red-300 text-xs">Error</span>}
                 </div>
                 {/* Progress Bar */}
                 <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
@@ -525,12 +513,16 @@ const Upload = () => {
                     <PlayIcon className="w-5 h-5" />
                   </button>
                 )}
-                <button onClick={() => cancelUpload(upload.id)} className="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-red-400" title="Cancel">
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-                <button onClick={() => removeUpload(upload.id)} className="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400" title="Remove from list">
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
+                {(upload.status === 'uploading' || upload.status === 'paused') && (
+                  <button onClick={() => cancelUpload(upload.id)} className="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-red-400" title="Cancel">
+                    <XMarkIcon className="w-5 h-5" />
+                  </button>
+                )}
+                {(upload.status === 'error' || upload.status === 'processing') && (
+                  <button onClick={() => removeUpload(upload.id)} className="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400" title="Remove from list">
+                    <XMarkIcon className="w-5 h-5" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
