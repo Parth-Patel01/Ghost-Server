@@ -49,10 +49,46 @@ const Upload = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
-  // Save uploads to localStorage whenever uploads change
+  // Save uploads to localStorage whenever uploads change (including chunks)
   useEffect(() => {
-    localStorage.setItem('soulstream_uploads', JSON.stringify(uploads))
+    // Only store serializable data (avoid File/Blob in chunks)
+    const uploadsToStore = uploads.map(u => ({
+      ...u,
+      file: undefined, // Don't store File object
+      chunks: u.chunks ? u.chunks.map(c => ({ index: c.index, uploaded: c.uploaded || false })) : []
+    }))
+    localStorage.setItem('soulstream_uploads', JSON.stringify(uploadsToStore))
   }, [uploads])
+
+  // On page load, restore chunks array for in-progress uploads
+  useEffect(() => {
+    const savedUploads = localStorage.getItem('soulstream_uploads')
+    if (savedUploads) {
+      try {
+        const parsedUploads = JSON.parse(savedUploads)
+        const inProgressUploads = parsedUploads.filter(
+          upload => upload.status === 'uploading' || upload.status === 'paused'
+        )
+        if (inProgressUploads.length > 0) {
+          // Restore chunks array for each upload
+          setUploads(inProgressUploads.map(u => ({
+            ...u,
+            file: undefined, // File must be reselected if needed
+            chunks: u.chunks || []
+          })))
+          setTimeout(() => {
+            inProgressUploads.forEach(upload => {
+              if (upload.status === 'uploading') {
+                resumeUpload(upload.id)
+              }
+            })
+          }, 100)
+        }
+      } catch (error) {
+        console.error('Error restoring uploads:', error)
+      }
+    }
+  }, [])
 
   const handleDragOver = (e) => {
     e.preventDefault()
