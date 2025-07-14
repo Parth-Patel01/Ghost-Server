@@ -177,9 +177,10 @@ const Upload = () => {
         await Promise.all(batchPromises)
       } catch (error) {
         if (error.name === 'AbortError' || error.message === 'Upload aborted') {
-          console.log('Upload aborted (paused or cancelled)')
+          console.log('🔄 Upload batch aborted (paused or cancelled)')
           return
         }
+        console.log('❌ Upload batch failed:', error)
         throw error
       }
     }
@@ -202,6 +203,7 @@ const Upload = () => {
     try {
       // Check if upload was aborted
       if (abortSignal && abortSignal.aborted) {
+        console.log(`⏸️ Chunk ${chunk.index} upload aborted before starting`)
         throw new Error('Upload aborted')
       }
 
@@ -303,18 +305,33 @@ const Upload = () => {
   }
 
   const pauseUpload = (uploadId) => {
-    // Just set the upload status to paused, don't abort the controller yet
+    console.log(`🔄 Pausing upload: ${uploadId}`)
+    
+    // Abort the current upload controller to stop ongoing chunks
+    const controller = uploadControllers.current.get(uploadId)
+    if (controller) {
+      console.log('✅ Aborting upload controller')
+      controller.abort()
+    } else {
+      console.log('⚠️ No controller found for upload')
+    }
+
     updateUpload(uploadId, {
       status: 'paused',
       isPaused: true
     })
     
-    console.log(`Upload paused: ${uploadId}`)
+    console.log(`✅ Upload paused: ${uploadId}`)
   }
 
   const resumeUpload = async (uploadId) => {
+    console.log(`▶️ Resuming upload: ${uploadId}`)
+    
     const upload = uploads.find(u => u.id === uploadId)
-    if (!upload) return
+    if (!upload) {
+      console.log('⚠️ Upload not found for resume')
+      return
+    }
 
     updateUpload(uploadId, {
       status: 'uploading',
@@ -324,10 +341,11 @@ const Upload = () => {
     try {
       // Continue uploading remaining chunks
       if (upload.chunks && upload.sessionId) {
+        console.log('🔄 Starting continueUploadChunks')
         await continueUploadChunks(uploadId, upload.file, upload.sessionId, upload.chunks)
       }
     } catch (error) {
-      console.error('Error resuming upload:', error)
+      console.error('❌ Error resuming upload:', error)
       updateUpload(uploadId, {
         status: 'error',
         error: error.response?.data?.error || error.message
@@ -338,12 +356,6 @@ const Upload = () => {
   const continueUploadChunks = async (uploadId, file, sessionId, existingChunks) => {
     const upload = uploads.find(u => u.id === uploadId)
     if (!upload) return
-
-    // Don't continue if the upload is still paused
-    if (upload.status === 'paused' || upload.isPaused) {
-      console.log('Upload is paused, not continuing')
-      return
-    }
 
     // Create abort controller for this upload
     const abortController = new AbortController()
@@ -369,9 +381,10 @@ const Upload = () => {
         await Promise.all(batchPromises)
       } catch (error) {
         if (error.name === 'AbortError') {
-          console.log('Upload batch aborted (paused or cancelled)')
+          console.log('🔄 Continue upload batch aborted (paused or cancelled)')
           return
         }
+        console.log('❌ Continue upload batch failed:', error)
         throw error
       }
     }
