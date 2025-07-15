@@ -473,97 +473,116 @@ const Upload = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-2 sm:px-4 py-10">
-      {/* Header */}
-      <div className="mb-10 text-center">
-        <h1 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-red-300 to-purple-400 mb-2">Upload a Soul</h1>
-        <p className="text-gray-300 text-base sm:text-lg max-w-xl mx-auto">Drag and drop your movie files below, or click to browse. SoulStream supports large files, chunked uploads, and background processing. Your journey begins here.</p>
-      </div>
-      {/* Upload Area */}
-      <div
-        className={
-          `relative flex flex-col items-center justify-center border-4 border-dashed rounded-2xl py-12 sm:py-16 px-4 sm:px-6 mb-10 transition-all duration-200 cursor-pointer ` +
-          (isDragOver ? 'border-gradient-to-r from-purple-500 to-red-500 bg-black/60' : 'border-gray-700 bg-gradient-to-br from-black via-gray-900 to-gray-950')
-        }
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        tabIndex={0}
-        role="button"
-        aria-label="Upload area"
-      >
-        <input
-          type="file"
-          accept="video/*"
-          multiple
-          ref={fileInputRef}
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-        <p className="text-lg text-gray-200 font-semibold mb-2">Drop your movie files here</p>
-        <p className="text-gray-400 text-sm">or click to select files</p>
-      </div>
-      {/* Upload List */}
-      {uploads.length > 0 && (
-        <div className="space-y-6">
-          {uploads.map(upload => (
-            <div key={upload.id} className="bg-gradient-to-br from-gray-900 via-gray-950 to-black rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-              <div className="flex-1 min-w-0 w-full">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 w-full">
-                  <span className="font-semibold text-gray-100 truncate w-full">{upload.file.name}</span>
-                  <span className="ml-0 sm:ml-2 text-xs text-gray-400">{(upload.file.size / (1024*1024)).toFixed(2)} MB</span>
-                  {upload.status === 'uploading' && <span className="ml-0 sm:ml-2 px-2 py-0.5 rounded bg-blue-900 text-blue-300 text-xs">Uploading</span>}
-                  {upload.status === 'processing' && <span className="ml-0 sm:ml-2 px-2 py-0.5 rounded bg-yellow-900 text-yellow-300 text-xs">Processing</span>}
-                  {upload.status === 'paused' && <span className="ml-0 sm:ml-2 px-2 py-0.5 rounded bg-gray-800 text-gray-300 text-xs">Paused</span>}
-                  {upload.status === 'error' && <span className="ml-0 sm:ml-2 px-2 py-0.5 rounded bg-red-900 text-red-300 text-xs">Error</span>}
-                </div>
-                {/* Progress Bar */}
-                <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
-                  <div
-                    className={
-                      `h-full rounded-full transition-all duration-300 ` +
-                      (upload.status === 'processing'
-                        ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 animate-pulse-slow'
-                        : upload.status === 'error'
-                        ? 'bg-gradient-to-r from-red-500 to-red-700'
-                        : 'bg-gradient-to-r from-purple-500 to-red-500')
-                    }
-                    style={{ width: `${upload.progress || 0}%` }}
-                  />
-                </div>
-                {/* Status/Error */}
-                {upload.status === 'error' && (
-                  <div className="text-red-400 text-xs mt-1">{upload.error}</div>
-                )}
-              </div>
-              {/* Controls */}
-              <div className="flex flex-row gap-2 mt-2 sm:mt-0">
-                {upload.status === 'uploading' && (
-                  <button onClick={() => pauseUpload(upload.id)} className="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-purple-300" title="Pause">
-                    <PauseIcon className="w-5 h-5" />
-                  </button>
-                )}
-                {upload.status === 'paused' && (
-                  <button onClick={() => resumeUpload(upload.id)} className="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-green-400" title="Resume">
-                    <PlayIcon className="w-5 h-5" />
-                  </button>
-                )}
-                {(upload.status === 'uploading' || upload.status === 'paused') && (
-                  <button onClick={() => cancelUpload(upload.id)} className="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-red-400" title="Cancel">
-                    <XMarkIcon className="w-5 h-5" />
-                  </button>
-                )}
-                {(upload.status === 'error' || upload.status === 'processing') && (
-                  <button onClick={() => removeUpload(upload.id)} className="p-2 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400" title="Remove from list">
-                    <XMarkIcon className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Header */}
+        <div className="mb-10 text-center">
+          <h1 className="text-3xl sm:text-4xl font-bold mb-4">Upload Movies</h1>
+          <p className="text-gray-300 text-base sm:text-lg max-w-xl mx-auto">
+            Drag and drop your movie files below, or click to browse. SoulStream supports large files, chunked uploads, and background processing.
+          </p>
         </div>
-      )}
+        
+        {/* Upload Area */}
+        <div
+          className={
+            `relative flex flex-col items-center justify-center border-2 border-dashed rounded-lg py-16 px-6 mb-10 transition-all duration-200 cursor-pointer ` +
+            (isDragOver ? 'border-white bg-gray-900' : 'border-gray-600 bg-gray-900 hover:border-gray-400')
+          }
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          tabIndex={0}
+          role="button"
+          aria-label="Upload area"
+        >
+          <input
+            type="file"
+            accept="video/*"
+            multiple
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4 mx-auto">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <p className="text-lg text-white font-semibold mb-2">Drop your movie files here</p>
+            <p className="text-gray-400 text-sm">or click to select files</p>
+          </div>
+        </div>
+        
+        {/* Upload List */}
+        {uploads.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold mb-4">Uploads</h2>
+            {uploads.map(upload => (
+              <div key={upload.id} className="bg-gray-900 rounded-lg p-4 shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
+                      <span className="font-semibold text-white truncate">{upload.file.name}</span>
+                      <span className="text-xs text-gray-400">{(upload.file.size / (1024*1024)).toFixed(2)} MB</span>
+                      {upload.status === 'uploading' && <span className="px-2 py-0.5 rounded bg-blue-900 text-blue-300 text-xs">Uploading</span>}
+                      {upload.status === 'processing' && <span className="px-2 py-0.5 rounded bg-yellow-900 text-yellow-300 text-xs">Processing</span>}
+                      {upload.status === 'paused' && <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300 text-xs">Paused</span>}
+                      {upload.status === 'error' && <span className="px-2 py-0.5 rounded bg-red-900 text-red-300 text-xs">Error</span>}
+                    </div>
+                    
+                    {/* Progress Bar */}
+                    <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden mb-3">
+                      <div
+                        className={
+                          `h-full rounded-full transition-all duration-300 ` +
+                          (upload.status === 'processing'
+                            ? 'bg-yellow-500'
+                            : upload.status === 'error'
+                            ? 'bg-red-500'
+                            : 'bg-white')
+                        }
+                        style={{ width: `${upload.progress || 0}%` }}
+                      />
+                    </div>
+                    
+                    {/* Status/Error */}
+                    {upload.status === 'error' && (
+                      <div className="text-red-400 text-xs">{upload.error}</div>
+                    )}
+                  </div>
+                  
+                  {/* Controls */}
+                  <div className="flex flex-row gap-2 sm:flex-shrink-0">
+                    {upload.status === 'uploading' && (
+                      <button onClick={() => pauseUpload(upload.id)} className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white transition-colors" title="Pause">
+                        <PauseIcon className="w-5 h-5" />
+                      </button>
+                    )}
+                    {upload.status === 'paused' && (
+                      <button onClick={() => resumeUpload(upload.id)} className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white transition-colors" title="Resume">
+                        <PlayIcon className="w-5 h-5" />
+                      </button>
+                    )}
+                    {(upload.status === 'uploading' || upload.status === 'paused') && (
+                      <button onClick={() => cancelUpload(upload.id)} className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white transition-colors" title="Cancel">
+                        <XMarkIcon className="w-5 h-5" />
+                      </button>
+                    )}
+                    {(upload.status === 'error' || upload.status === 'processing') && (
+                      <button onClick={() => removeUpload(upload.id)} className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white transition-colors" title="Remove from list">
+                        <XMarkIcon className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
