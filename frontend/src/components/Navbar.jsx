@@ -4,9 +4,9 @@ import { useState } from 'react'
 import clsx from 'clsx'
 
 const navigation = [
-  { name: 'Movies', href: '/', icon: HomeIcon },
-  { name: 'Library', href: '/library', icon: HomeIcon },
+  { name: 'Library', href: '/', icon: HomeIcon },
   { name: 'Upload', href: '/upload', icon: CloudArrowUpIcon },
+  { name: 'Media Only', href: '/media-only', icon: HomeIcon },
 ]
 
 const Navbar = () => {

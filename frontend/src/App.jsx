@@ -17,8 +17,8 @@ function App() {
           {/* Main content area */}
           <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-4 lg:px-8 py-8">
             <Routes>
-              <Route path="/" element={<MediaOnly />} />
-              <Route path="/library" element={<Library />} />
+              <Route path="/" element={<Library />} />
+              <Route path="/media-only" element={<MediaOnly />} />
               <Route path="/upload" element={<Upload />} />
               <Route path="/player/:movieId" element={<Player />} />
               <Route path="/movie/:movieId" element={<MovieDetails />} />

@@ -41,13 +41,13 @@ class MediaOnlyServer {
 
         // Serve movie files with byte-range support
         this.app.get('/:movieDir/movie.mp4', this.serveVideo.bind(this));
-        
+
         // Serve poster images
         this.app.get('/:movieDir/poster.jpg', this.servePoster.bind(this));
-        
+
         // Serve HLS playlist files
         this.app.get('/:movieDir/hls/playlist.m3u8', this.servePlaylist.bind(this));
-        
+
         // Serve HLS segment files
         this.app.get('/:movieDir/hls/:segment', this.serveSegment.bind(this));
 
@@ -59,6 +59,11 @@ class MediaOnlyServer {
                 res.set('Cache-Control', 'public, max-age=3600');
             }
         }));
+
+        // Serve frontend for all other routes
+        this.app.get('*', (req, res) => {
+            res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+        });
 
         // 404 handler
         this.app.use((req, res) => {
@@ -84,7 +89,7 @@ class MediaOnlyServer {
                     if (fs.existsSync(movieFile)) {
                         const stat = fs.statSync(movieFile);
                         const movieInfo = this.parseMovieInfo(folder);
-                        
+
                         movies.push({
                             id: folder,
                             title: movieInfo.title,
@@ -153,13 +158,13 @@ class MediaOnlyServer {
     async searchMovies(req, res) {
         try {
             const { q } = req.query;
-            
+
             if (!q || q.trim().length === 0) {
                 return res.json([]);
             }
 
             const movies = await this.getMovies(req, res);
-            const searchResults = movies.filter(movie => 
+            const searchResults = movies.filter(movie =>
                 movie.title.toLowerCase().includes(q.toLowerCase()) ||
                 movie.filename.toLowerCase().includes(q.toLowerCase())
             );
@@ -199,7 +204,7 @@ class MediaOnlyServer {
             .trim();
 
         // Capitalize first letter of each word
-        title = title.replace(/\w\S*/g, (txt) => 
+        title = title.replace(/\w\S*/g, (txt) =>
             txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
         );
 
@@ -309,7 +314,7 @@ class MediaOnlyServer {
     async serveSegment(req, res) {
         try {
             const { movieDir, segment } = req.params;
-            
+
             // Validate segment filename (should be .ts files)
             if (!segment.endsWith('.ts')) {
                 return res.status(400).json({ error: 'Invalid segment file' });

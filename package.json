@@ -10,6 +10,7 @@
     "media-server": "node src/media-server.js",
     "media-only": "node start-media-server.js",
     "build-frontend": "cd frontend && npm run build",
+    "build-media-only": "cd frontend && npm run build:media-only",
     "setup": "npm install && cd frontend && npm install"
   },
   "dependencies": {
