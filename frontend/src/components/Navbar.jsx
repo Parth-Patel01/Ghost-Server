@@ -4,7 +4,8 @@ import { useState } from 'react'
 import clsx from 'clsx'
 
 const navigation = [
-  { name: 'Home', href: '/', icon: HomeIcon },
+  { name: 'Movies', href: '/', icon: HomeIcon },
+  { name: 'Library', href: '/library', icon: HomeIcon },
   { name: 'Upload', href: '/upload', icon: CloudArrowUpIcon },
 ]
 
@@ -24,7 +25,7 @@ const Navbar = () => {
         <div className="flex items-center px-6 py-8">
           <span className="text-2xl font-bold text-white">SoulStream</span>
         </div>
-        
+
         {/* Nav links */}
         <div className="flex-1 flex flex-col space-y-2 px-4">
           {navigation.map((item) => {

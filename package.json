@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "worker": "node src/worker.js",
     "media-server": "node src/media-server.js",
+    "media-only": "node start-media-server.js",
     "build-frontend": "cd frontend && npm run build",
     "setup": "npm install && cd frontend && npm install"
   },
@@ -29,7 +30,12 @@
   "devDependencies": {
     "nodemon": "^3.0.2"
   },
-  "keywords": ["media", "streaming", "raspberry-pi", "local"],
+  "keywords": [
+    "media",
+    "streaming",
+    "raspberry-pi",
+    "local"
+  ],
   "author": "Pi Media Server",
   "license": "MIT"
 }

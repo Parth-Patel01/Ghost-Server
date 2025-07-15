@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { 
-  PlayIcon, 
-  PauseIcon, 
-  SpeakerWaveIcon, 
+import {
+  PlayIcon,
+  PauseIcon,
+  SpeakerWaveIcon,
   SpeakerXMarkIcon,
   ArrowLeftIcon,
   ArrowsPointingOutIcon,
@@ -19,7 +19,7 @@ const Player = () => {
   const [movie, setMovie] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  
+
   // Player state
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -95,24 +95,28 @@ const Player = () => {
     const video = videoRef.current
     if (!video) return
 
-    // Use HLS if available and supported, otherwise fall back to MP4
-    const useHLS = movie.streamUrl && Hls.isSupported()
-    
-    if (useHLS) {
+    console.log('Initializing player for movie:', movie)
+    console.log('Stream URL:', movie.streamUrl)
+    console.log('Download URL:', movie.downloadUrl)
+
+    // Try HLS first if available
+    if (movie.streamUrl && Hls.isSupported()) {
       console.log('Using HLS streaming')
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
-        backBufferLength: 90
+        backBufferLength: 90,
+        debug: true
       })
-      
+
       hls.loadSource(movie.streamUrl)
       hls.attachMedia(video)
-      
+
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log('HLS manifest parsed')
+        console.log('HLS manifest parsed successfully')
+        video.play().catch(e => console.log('Auto-play failed:', e))
       })
-      
+
       hls.on(Hls.Events.ERROR, (event, data) => {
         console.error('HLS error:', data)
         if (data.fatal) {
@@ -120,11 +124,22 @@ const Player = () => {
           fallbackToMP4()
         }
       })
-      
+
       hlsRef.current = hls
     } else {
       console.log('Using direct MP4 playback')
       video.src = movie.downloadUrl
+
+      // Add event listeners for MP4
+      video.addEventListener('loadedmetadata', () => {
+        console.log('MP4 metadata loaded')
+        video.play().catch(e => console.log('Auto-play failed:', e))
+      })
+
+      video.addEventListener('error', (e) => {
+        console.error('Video error:', e)
+        setError('Failed to load video')
+      })
     }
 
     // Set up video event listeners
@@ -135,7 +150,7 @@ const Player = () => {
     video.addEventListener('pause', () => setIsPlaying(false))
     video.addEventListener('ended', () => setIsPlaying(false))
     video.addEventListener('volumechange', handleVolumeChange)
-    
+
     // Keyboard controls
     document.addEventListener('keydown', handleKeyDown)
   }
@@ -145,7 +160,7 @@ const Player = () => {
       hlsRef.current.destroy()
       hlsRef.current = null
     }
-    
+
     const video = videoRef.current
     if (video && movie.downloadUrl) {
       video.src = movie.downloadUrl
@@ -284,11 +299,11 @@ const Player = () => {
 
   const formatTime = (time) => {
     if (!time || !isFinite(time)) return '0:00'
-    
+
     const hours = Math.floor(time / 3600)
     const minutes = Math.floor((time % 3600) / 60)
     const seconds = Math.floor(time % 60)
-    
+
     if (hours > 0) {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     } else {
@@ -332,8 +347,8 @@ const Player = () => {
     <div className="max-w-7xl mx-auto">
       {/* Back button */}
       <div className="mb-6">
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className="inline-flex items-center px-4 py-3 text-sm font-semibold text-gray-300 hover:text-white bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-700 hover:to-gray-600 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
         >
           <ArrowLeftIcon className="h-5 w-5 mr-2" />
@@ -352,31 +367,30 @@ const Player = () => {
         />
 
         {/* Custom Controls Overlay */}
-        <div 
-          className={`video-controls transition-opacity duration-300 ${
-            showControls ? 'opacity-100' : 'opacity-0'
-          }`}
+        <div
+          className={`video-controls transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'
+            }`}
         >
           {/* Progress Bar */}
           <div className="mb-3 sm:mb-4">
-            <div 
+            <div
               className="relative h-3 sm:h-2 bg-gray-700 rounded-full cursor-pointer"
               onClick={handleProgressClick}
             >
               {/* Buffered indicator */}
-              <div 
+              <div
                 className="absolute h-full bg-gray-600 rounded-full"
                 style={{ width: `${buffered}%` }}
               />
-              
+
               {/* Progress indicator */}
-              <div 
+              <div
                 className="absolute h-full bg-gradient-to-r from-red-500 to-purple-600 rounded-full shadow-lg"
                 style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
               />
-              
+
               {/* Seek handle */}
-              <div 
+              <div
                 className="absolute w-5 h-5 sm:w-4 sm:h-4 bg-white rounded-full -mt-1 -ml-2 shadow-xl border-2 border-red-500"
                 style={{ left: `${duration ? (currentTime / duration) * 100 : 0}%` }}
               />
@@ -410,7 +424,7 @@ const Player = () => {
                     <SpeakerWaveIcon className="h-5 w-5" />
                   )}
                 </button>
-                
+
                 <input
                   type="range"
                   min="0"
@@ -478,7 +492,7 @@ const Player = () => {
           {movie.duration && <span>🕒 {formatTime(movie.duration)}</span>}
           <span className="capitalize bg-purple-600 text-white px-2 py-1 rounded-full text-xs">{movie.status}</span>
         </div>
-        
+
         {/* Keyboard shortcuts help */}
         <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg border border-gray-700">
           <h3 className="font-semibold text-red-300 mb-2 text-sm sm:text-base">⌨️ Soul Commands</h3>

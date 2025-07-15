@@ -4,39 +4,11 @@ import { uploadAPI } from '../utils/api'
 
 const Upload = () => {
   const [uploads, setUploads] = useState([])
-  const [uploadQueue, setUploadQueue] = useState([])
-  const [isProcessingQueue, setIsProcessingQueue] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef(null)
   const uploadControllers = useRef(new Map()) // For pause/resume control
   const uploadsRef = useRef([])
   useEffect(() => { uploadsRef.current = uploads }, [uploads])
-
-  // Process upload queue
-  useEffect(() => {
-    if (uploadQueue.length > 0 && !isProcessingQueue) {
-      processNextUpload()
-    }
-  }, [uploadQueue, isProcessingQueue])
-
-  const processNextUpload = async () => {
-    if (uploadQueue.length === 0) return
-    
-    setIsProcessingQueue(true)
-    const nextFile = uploadQueue[0]
-    
-    try {
-      await startUpload(nextFile)
-      // Remove from queue after successful start
-      setUploadQueue(prev => prev.slice(1))
-    } catch (error) {
-      console.error('Failed to start upload for:', nextFile.name, error)
-      // Remove from queue even if failed
-      setUploadQueue(prev => prev.slice(1))
-    } finally {
-      setIsProcessingQueue(false)
-    }
-  }
 
   // Background upload support - restore state on page load
   useEffect(() => {
@@ -142,19 +114,21 @@ const Upload = () => {
 
   const handleFiles = (files) => {
     const videoFiles = files.filter(file => file.type.startsWith('video/'))
-    
+
     if (videoFiles.length === 0) {
       alert('No video files selected. Please select video files only.')
       return
     }
 
-    // Add files to queue instead of starting immediately
-    setUploadQueue(prev => [...prev, ...videoFiles])
+    // Start all uploads simultaneously
+    videoFiles.forEach(file => {
+      startUpload(file)
+    })
   }
 
   const startUpload = async (file) => {
     const uploadId = Date.now() + Math.random()
-    
+
     // Add upload to state
     const newUpload = {
       id: uploadId,
@@ -174,7 +148,7 @@ const Upload = () => {
     try {
       // Start upload session
       const session = await uploadAPI.startUpload(file.name, file.size)
-      
+
       updateUpload(uploadId, {
         sessionId: session.sessionId,
         status: 'uploading',
@@ -183,12 +157,12 @@ const Upload = () => {
 
       // Upload chunks
       await uploadChunks(uploadId, file, session)
-      
+
     } catch (error) {
       console.error('Upload failed:', error)
-      
+
       let errorMessage = error.response?.data?.error || error.message
-      
+
       // Provide better error messages for common issues
       if (error.response?.status === 429) {
         errorMessage = 'Upload rate limit reached. Please wait a moment and try again.'
@@ -197,7 +171,7 @@ const Upload = () => {
       } else if (error.response?.status === 500) {
         errorMessage = 'Server error. Please try again later.'
       }
-      
+
       updateUpload(uploadId, {
         status: 'error',
         error: errorMessage
@@ -217,8 +191,8 @@ const Upload = () => {
       chunks.push({ index: i, data: chunk, uploaded: false })
     }
 
-    updateUpload(uploadId, { 
-      chunks, 
+    updateUpload(uploadId, {
+      chunks,
       totalChunks,
       uploadedChunks: 0
     })
@@ -239,10 +213,10 @@ const Upload = () => {
       }
 
       const batch = chunks.slice(i, i + concurrency)
-      const batchPromises = batch.map(chunk => 
+      const batchPromises = batch.map(chunk =>
         uploadChunk(uploadId, sessionId, chunk, 0, abortController.signal)
       )
-      
+
       try {
         await Promise.all(batchPromises)
       } catch (error) {
@@ -308,7 +282,7 @@ const Upload = () => {
   }
 
   const updateUpload = (uploadId, updates) => {
-    setUploads(prev => prev.map(upload => 
+    setUploads(prev => prev.map(upload =>
       upload.id === uploadId ? { ...upload, ...updates } : upload
     ))
   }
@@ -316,14 +290,14 @@ const Upload = () => {
   const updateChunkProgress = (uploadId, chunkIndex, loaded, total) => {
     setUploads(prev => prev.map(upload => {
       if (upload.id === uploadId && upload.chunks) {
-        const updatedChunks = upload.chunks.map(chunk => 
-          chunk.index === chunkIndex 
+        const updatedChunks = upload.chunks.map(chunk =>
+          chunk.index === chunkIndex
             ? { ...chunk, loaded, total }
             : chunk
         )
-        
+
         // Calculate overall progress
-        const totalUploaded = updatedChunks.reduce((sum, chunk) => 
+        const totalUploaded = updatedChunks.reduce((sum, chunk) =>
           sum + (chunk.loaded || 0), 0
         )
         const totalSize = upload.file.size
@@ -338,8 +312,8 @@ const Upload = () => {
   const markChunkUploaded = (uploadId, chunkIndex) => {
     setUploads(prev => prev.map(upload => {
       if (upload.id === uploadId && upload.chunks) {
-        const updatedChunks = upload.chunks.map(chunk => 
-          chunk.index === chunkIndex 
+        const updatedChunks = upload.chunks.map(chunk =>
+          chunk.index === chunkIndex
             ? { ...chunk, uploaded: true }
             : chunk
         )
@@ -370,13 +344,13 @@ const Upload = () => {
     } catch (error) {
       console.error('Error cancelling upload:', error)
     }
-    
+
     removeUpload(uploadId)
   }
 
   const pauseUpload = (uploadId) => {
     console.log(`🔄 Pausing upload: ${uploadId}`)
-    
+
     // Abort the current upload controller to stop ongoing chunks
     const controller = uploadControllers.current.get(uploadId)
     if (controller) {
@@ -390,13 +364,13 @@ const Upload = () => {
       status: 'paused',
       isPaused: true
     })
-    
+
     console.log(`✅ Upload paused: ${uploadId}`)
   }
 
   const resumeUpload = async (uploadId) => {
     console.log(`▶️ Resuming upload: ${uploadId}`)
-    
+
     const upload = uploads.find(u => u.id === uploadId)
     if (!upload) {
       console.log('⚠️ Upload not found for resume')
@@ -442,10 +416,10 @@ const Upload = () => {
       }
 
       const batch = remainingChunks.slice(i, i + concurrency)
-      const batchPromises = batch.map(chunk => 
+      const batchPromises = batch.map(chunk =>
         uploadChunk(uploadId, sessionId, chunk, 0, abortController.signal)
       )
-      
+
       try {
         await Promise.all(batchPromises)
       } catch (error) {
@@ -514,7 +488,7 @@ const Upload = () => {
             Drag and drop your movie files below, or click to browse. SoulStream supports large files, chunked uploads, and background processing.
           </p>
         </div>
-        
+
         {/* Upload Queue Status */}
         {uploadQueue.length > 0 && (
           <div className="mb-6 p-4 bg-gray-900 rounded-lg">
@@ -534,7 +508,7 @@ const Upload = () => {
             </div>
           </div>
         )}
-        
+
         {/* Upload Area */}
         <div
           className={
@@ -567,7 +541,7 @@ const Upload = () => {
             <p className="text-gray-400 text-sm">or click to select files</p>
           </div>
         </div>
-        
+
         {/* Upload List */}
         {uploads.length > 0 && (
           <div className="space-y-4">
@@ -578,13 +552,13 @@ const Upload = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
                       <span className="font-semibold text-white truncate">{upload.file.name}</span>
-                      <span className="text-xs text-gray-400">{(upload.file.size / (1024*1024)).toFixed(2)} MB</span>
+                      <span className="text-xs text-gray-400">{(upload.file.size / (1024 * 1024)).toFixed(2)} MB</span>
                       {upload.status === 'uploading' && <span className="px-2 py-0.5 rounded bg-blue-900 text-blue-300 text-xs">Uploading</span>}
                       {upload.status === 'processing' && <span className="px-2 py-0.5 rounded bg-yellow-900 text-yellow-300 text-xs">Processing</span>}
                       {upload.status === 'paused' && <span className="px-2 py-0.5 rounded bg-gray-800 text-gray-300 text-xs">Paused</span>}
                       {upload.status === 'error' && <span className="px-2 py-0.5 rounded bg-red-900 text-red-300 text-xs">Error</span>}
                     </div>
-                    
+
                     {/* Progress Bar */}
                     <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden mb-3">
                       <div
@@ -593,19 +567,19 @@ const Upload = () => {
                           (upload.status === 'processing'
                             ? 'bg-yellow-500'
                             : upload.status === 'error'
-                            ? 'bg-red-500'
-                            : 'bg-white')
+                              ? 'bg-red-500'
+                              : 'bg-white')
                         }
                         style={{ width: `${upload.progress || 0}%` }}
                       />
                     </div>
-                    
+
                     {/* Status/Error */}
                     {upload.status === 'error' && (
                       <div className="text-red-400 text-xs">{upload.error}</div>
                     )}
                   </div>
-                  
+
                   {/* Controls */}
                   <div className="flex flex-row gap-2 sm:flex-shrink-0">
                     {upload.status === 'uploading' && (
