@@ -415,6 +415,7 @@ configure_nginx() {
     fi
 
     # Create nginx configuration
+    # NOTE: All proxy_set_header directives must have exactly two arguments (header name and value)
     sudo tee /etc/nginx/sites-available/pi-media-server > /dev/null <<EOF
 server {
     listen 80;
@@ -425,12 +426,8 @@ server {
         proxy_pass http://127.0.0.1:3456;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        
-        # Enable byte-range requests
         proxy_set_header Range $http_range;
         proxy_set_header If-Range $http_if_range;
-        
-        # Caching for media files
         expires 1d;
         add_header Cache-Control "public, immutable";
     }
@@ -441,8 +438,6 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        
-        # Increase timeout for large uploads
         proxy_read_timeout 600s;
         proxy_send_timeout 600s;
         client_max_body_size 5G;
