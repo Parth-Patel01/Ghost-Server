@@ -4,11 +4,39 @@ import { uploadAPI } from '../utils/api'
 
 const Upload = () => {
   const [uploads, setUploads] = useState([])
+  const [uploadQueue, setUploadQueue] = useState([])
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef(null)
   const uploadControllers = useRef(new Map()) // For pause/resume control
   const uploadsRef = useRef([])
   useEffect(() => { uploadsRef.current = uploads }, [uploads])
+
+  // Process upload queue
+  useEffect(() => {
+    if (uploadQueue.length > 0 && !isProcessingQueue) {
+      processNextUpload()
+    }
+  }, [uploadQueue, isProcessingQueue])
+
+  const processNextUpload = async () => {
+    if (uploadQueue.length === 0) return
+    
+    setIsProcessingQueue(true)
+    const nextFile = uploadQueue[0]
+    
+    try {
+      await startUpload(nextFile)
+      // Remove from queue after successful start
+      setUploadQueue(prev => prev.slice(1))
+    } catch (error) {
+      console.error('Failed to start upload for:', nextFile.name, error)
+      // Remove from queue even if failed
+      setUploadQueue(prev => prev.slice(1))
+    } finally {
+      setIsProcessingQueue(false)
+    }
+  }
 
   // Background upload support - restore state on page load
   useEffect(() => {
@@ -113,11 +141,15 @@ const Upload = () => {
   }
 
   const handleFiles = (files) => {
-    files.forEach((file) => {
-      if (file.type.startsWith('video/')) {
-        startUpload(file)
-      }
-    })
+    const videoFiles = files.filter(file => file.type.startsWith('video/'))
+    
+    if (videoFiles.length === 0) {
+      alert('No video files selected. Please select video files only.')
+      return
+    }
+
+    // Add files to queue instead of starting immediately
+    setUploadQueue(prev => [...prev, ...videoFiles])
   }
 
   const startUpload = async (file) => {
@@ -482,6 +514,26 @@ const Upload = () => {
             Drag and drop your movie files below, or click to browse. SoulStream supports large files, chunked uploads, and background processing.
           </p>
         </div>
+        
+        {/* Upload Queue Status */}
+        {uploadQueue.length > 0 && (
+          <div className="mb-6 p-4 bg-gray-900 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Upload Queue</h3>
+                <p className="text-gray-400 text-sm">
+                  {uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''} waiting to upload
+                </p>
+              </div>
+              {isProcessingQueue && (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span className="text-sm text-gray-300">Processing...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Upload Area */}
         <div
