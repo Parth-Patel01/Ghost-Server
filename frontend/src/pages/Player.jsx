@@ -164,6 +164,24 @@ const Player = () => {
     const video = videoRef.current
     if (video) {
       setCurrentTime(video.currentTime)
+      // Save progress to localStorage
+      try {
+        const progressKey = 'soulstream_progress'
+        let progress = JSON.parse(localStorage.getItem(progressKey) || '{}')
+        // If watched > 90%, remove progress
+        if (video.currentTime > 0.9 * video.duration) {
+          delete progress[movieId]
+        } else {
+          progress[movieId] = {
+            currentTime: video.currentTime,
+            duration: video.duration || duration || 0,
+            updated: Date.now()
+          }
+        }
+        localStorage.setItem(progressKey, JSON.stringify(progress))
+      } catch (e) {
+        // Ignore localStorage errors
+      }
     }
   }
 
