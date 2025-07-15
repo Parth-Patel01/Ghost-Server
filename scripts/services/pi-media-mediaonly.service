@@ -1,0 +1,16 @@
+[Unit]
+Description=Pi Media Server - Media Only (Netflix-style)
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/home/%i/pi-media-server
+ExecStart=/usr/bin/node src/media-only-server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target 

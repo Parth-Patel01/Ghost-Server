@@ -385,19 +385,19 @@ setup_services() {
     
     # Copy service files
     sudo cp scripts/services/*.service /etc/systemd/system/
-    
+    # Add media-only service
+    sudo cp scripts/services/pi-media-mediaonly.service /etc/systemd/system/
     # Update service file paths for current user
     print_status "Updating service file paths for user: $USER..."
     sudo sed -i "s|/home/pi/pi-media-server|$INSTALL_DIR|g" /etc/systemd/system/pi-media-*.service
     sudo sed -i "s|User=pi|User=$USER|g" /etc/systemd/system/pi-media-*.service
     sudo sed -i "s|Group=pi|Group=$USER|g" /etc/systemd/system/pi-media-*.service
-    
     # Reload systemd and enable services
     sudo systemctl daemon-reload
     sudo systemctl enable pi-media-upload.service
     sudo systemctl enable pi-media-stream.service
     sudo systemctl enable pi-media-worker.service
-    
+    sudo systemctl enable pi-media-mediaonly.service
     print_success "Systemd services configured"
 }
 
@@ -422,13 +422,13 @@ server {
     
     # Media files (direct serving)
     location ~* ^/[^/]+\.(mp4|m3u8|ts|jpg|jpeg|png)$ {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_pass http://127.0.0.1:3456;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         
         # Enable byte-range requests
-        proxy_set_header Range \$http_range;
-        proxy_set_header If-Range \$http_if_range;
+        proxy_set_header Range $http_range;
+        proxy_set_header If-Range $http_if_range;
         
         # Caching for media files
         expires 1d;
@@ -438,9 +438,9 @@ server {
     # API requests (upload server)
     location /api/ {
         proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         
         # Increase timeout for large uploads
         proxy_read_timeout 600s;
@@ -451,9 +451,9 @@ server {
     # Frontend (upload server serves built React app)
     location / {
         proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 }
 EOF
@@ -551,6 +551,11 @@ start_services() {
         exit 1
     fi
     
+    if ! check_and_free_port 3456 "node"; then
+        print_error "Cannot free port 3456 for media-only service"
+        exit 1
+    fi
+    
     # Verify nginx is not using port 8080
     print_status "Ensuring nginx is not conflicting with media server port 8080..."
     if lsof -Pi :8080 -sTCP:LISTEN -t >/dev/null 2>&1; then
@@ -565,6 +570,7 @@ start_services() {
     sudo systemctl start pi-media-upload.service
     sudo systemctl start pi-media-stream.service
     sudo systemctl start pi-media-worker.service
+    sudo systemctl start pi-media-mediaonly.service
     
     # Wait a moment for services to start
     sleep 3
@@ -612,6 +618,24 @@ start_services() {
         print_error "Worker service failed to start"
         sudo systemctl status pi-media-worker.service --no-pager
     fi
+
+    if sudo systemctl is-active --quiet pi-media-mediaonly.service; then
+        print_success "Media-only service started"
+        # Test if media-only service is responding
+        sleep 2
+        if curl -s -f http://localhost:3456/api/health > /dev/null 2>&1; then
+            print_success "Media-only service is responding on port 3456"
+        else
+            print_warning "Media-only service is running but not responding on port 3456"
+            print_status "Checking media-only service logs..."
+            sudo journalctl -u pi-media-mediaonly.service -n 10 --no-pager
+        fi
+    else
+        print_error "Media-only service failed to start"
+        sudo systemctl status pi-media-mediaonly.service --no-pager
+        print_status "Media-only service logs:"
+        sudo journalctl -u pi-media-mediaonly.service -n 20 --no-pager
+    fi
 }
 
 # Create a simple test file
@@ -629,7 +653,7 @@ Server Information:
 ==================
 Dark Portal (Upload): http://$PI_IP:3000
 Soul Streaming:       http://$PI_IP:80 (via nginx proxy)
-Direct Dark API:      http://$PI_IP:8080
+Direct Dark API:      http://$PI_IP:3456
 Installation Dir:     $INSTALL_DIR
 Soul Storage:         $MEDIA_DIR
 Dark Database:        $DB_PATH
@@ -653,10 +677,10 @@ Troubleshooting:
 ===============
 - Check logs: sudo journalctl -u pi-media-upload -f
 - Test Redis: redis-cli ping
-- Check ports: ss -tlnp | grep -E ':(80|3000|8080|6379)'
+- Check ports: ss -tlnp | grep -E ':(80|3000|3456|6379)'
 - Check ffmpeg: ffmpeg -version
 - Test upload service: curl http://localhost:3000/health
-- Test streaming service: curl http://localhost:8080/health
+- Test streaming service: curl http://localhost:3456/api/health
 - Check nginx config: sudo nginx -t
 - Upload issues: Check for rate limiting (429 errors) - wait and retry
 - Large file uploads: Uses chunked upload (10,000 requests/15min allowed)
