@@ -13,7 +13,7 @@ function App() {
       <div className="min-h-screen bg-black flex flex-col md:flex-row">
         {/* Sidebar for desktop/TV, Top navbar for mobile */}
         <Navbar />
-        <div className="flex-1 flex flex-col min-h-screen">
+        <div className="flex-1 flex flex-col min-h-screen md:ml-64">
           {/* Main content area */}
           <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-4 lg:px-8 py-8">
             <Routes>

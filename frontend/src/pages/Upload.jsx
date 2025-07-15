@@ -481,33 +481,17 @@ const Upload = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+
         {/* Header */}
         <div className="mb-10 text-center">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-4">Upload Movies</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-white">Upload Movies</h1>
           <p className="text-gray-300 text-base sm:text-lg max-w-xl mx-auto">
             Drag and drop your movie files below, or click to browse. SoulStream supports large files, chunked uploads, and background processing.
           </p>
         </div>
 
-        {/* Upload Queue Status */}
-        {uploadQueue.length > 0 && (
-          <div className="mb-6 p-4 bg-gray-900 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Upload Queue</h3>
-                <p className="text-gray-400 text-sm">
-                  {uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''} waiting to upload
-                </p>
-              </div>
-              {isProcessingQueue && (
-                <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span className="text-sm text-gray-300">Processing...</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+
 
         {/* Upload Area */}
         <div
