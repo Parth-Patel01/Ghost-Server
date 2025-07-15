@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { PlayIcon, ClockIcon, TrashIcon, CalendarIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { moviesAPI } from '../utils/api'
@@ -32,6 +32,8 @@ const Library = () => {
   const [movies, setMovies] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -69,13 +71,44 @@ const Library = () => {
 
   const continueWatching = useMemo(() => getContinueWatching(movies), [movies])
   const heroMovie = useMemo(() => getHeroMovie(movies), [movies])
-  
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    async (query) => {
+      if (!query.trim()) {
+        setSearchResults([])
+        return
+      }
+
+      setSearching(true)
+      try {
+        const results = await moviesAPI.searchMovies(query, 'ready')
+        setSearchResults(results)
+      } catch (err) {
+        console.error('Search failed:', err)
+        setSearchResults([])
+      } finally {
+        setSearching(false)
+      }
+    },
+    []
+  )
+
+  // Debounce search input
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      debouncedSearch(searchQuery)
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery, debouncedSearch])
+
   const filteredMovies = useMemo(() => {
-    return movies.filter(movie => 
-      movie.status === 'ready' && 
-      movie.title.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  }, [movies, searchQuery])
+    if (searchQuery.trim()) {
+      return searchResults
+    }
+    return movies.filter(movie => movie.status === 'ready')
+  }, [movies, searchQuery, searchResults])
 
   const formatDuration = (seconds) => {
     if (!seconds) return 'Unknown'
@@ -96,7 +129,7 @@ const Library = () => {
     return (
       <div className="text-center py-12">
         <p className="text-red-400 mb-4">{error}</p>
-        <button 
+        <button
           onClick={loadMovies}
           className="px-6 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors"
         >
@@ -120,7 +153,7 @@ const Library = () => {
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
           </div>
-          
+
           {/* Content */}
           <div className="relative z-10 px-4 sm:px-8 lg:px-16 pb-8 md:pb-16">
             <div className="max-w-4xl">
@@ -137,16 +170,19 @@ const Library = () => {
                 {heroMovie.description || 'A compelling story that will keep you on the edge of your seat.'}
               </p>
               <div className="flex gap-3">
-                <Link 
-                  to={`/player/${heroMovie.id}`} 
+                <Link
+                  to={`/player/${heroMovie.id}`}
                   className="flex items-center gap-2 px-6 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   <PlayIcon className="w-5 h-5" />
                   Play
                 </Link>
-                <button className="flex items-center gap-2 px-6 py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors">
+                <Link
+                  to={`/movie/${heroMovie.id}`}
+                  className="flex items-center gap-2 px-6 py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                >
                   More Info
-                </button>
+                </Link>
               </div>
             </div>
           </div>
@@ -161,9 +197,15 @@ const Library = () => {
             placeholder="Search movies..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-900 text-white border border-gray-700 rounded-lg focus:outline-none focus:border-white"
+            className="w-full px-4 py-3 bg-gray-900 text-white border border-gray-700 rounded-lg focus:outline-none focus:border-white pr-10"
           />
-          <MagnifyingGlassIcon className="absolute right-3 top-3.5 h-5 w-5 text-gray-400" />
+          {searching ? (
+            <div className="absolute right-3 top-3.5">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            </div>
+          ) : (
+            <MagnifyingGlassIcon className="absolute right-3 top-3.5 h-5 w-5 text-gray-400" />
+          )}
         </div>
       </div>
 
@@ -201,15 +243,15 @@ const Library = () => {
         <h2 className="text-xl md:text-2xl font-semibold mb-4">
           {searchQuery ? `Search Results for "${searchQuery}"` : 'All Movies'}
         </h2>
-        
+
         {filteredMovies.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-gray-400 text-lg">
               {searchQuery ? 'No movies found matching your search.' : 'No movies available yet.'}
             </p>
             {!searchQuery && (
-              <Link 
-                to="/upload" 
+              <Link
+                to="/upload"
                 className="inline-block mt-4 px-6 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Upload Your First Movie
@@ -241,6 +283,14 @@ const Library = () => {
                     <PlayIcon className="h-8 w-8 text-white" />
                   </Link>
 
+                  {/* More Info button */}
+                  <Link
+                    to={`/movie/${movie.id}`}
+                    className="absolute top-2 left-2 px-2 py-1 bg-black bg-opacity-50 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-opacity-75"
+                  >
+                    More Info
+                  </Link>
+
                   {/* Delete button */}
                   <button
                     onClick={() => deleteMovie(movie.id)}
@@ -254,7 +304,7 @@ const Library = () => {
                   <h3 className="font-medium text-white truncate text-sm" title={movie.title}>
                     {movie.title}
                   </h3>
-                  
+
                   <div className="flex items-center justify-between mt-1 text-xs text-gray-400">
                     {movie.year && (
                       <div className="flex items-center">
@@ -262,7 +312,7 @@ const Library = () => {
                         {movie.year}
                       </div>
                     )}
-                    
+
                     {movie.duration && (
                       <div className="flex items-center">
                         <ClockIcon className="h-3 w-3 mr-1" />

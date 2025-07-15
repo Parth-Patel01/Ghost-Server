@@ -78,6 +78,14 @@ export const moviesAPI = {
     return response.data
   },
 
+  // Search movies
+  searchMovies: async (query, status = null) => {
+    const params = { q: query }
+    if (status) params.status = status
+    const response = await api.get('/movies/search', { params })
+    return response.data
+  },
+
   // Get single movie
   getMovie: async (id) => {
     const response = await api.get(`/movies/${id}`)

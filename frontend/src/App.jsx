@@ -3,6 +3,7 @@ import Navbar from './components/Navbar'
 import Upload from './pages/Upload'
 import Library from './pages/Library'
 import Player from './pages/Player'
+import MovieDetails from './pages/MovieDetails'
 import './index.css'
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
               <Route path="/" element={<Library />} />
               <Route path="/upload" element={<Upload />} />
               <Route path="/player/:movieId" element={<Player />} />
+              <Route path="/movie/:movieId" element={<MovieDetails />} />
             </Routes>
           </main>
           {/* Footer will be added here later */}

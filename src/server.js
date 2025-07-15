@@ -51,7 +51,7 @@ class UploadServer {
         // Rate limiting - different limits for different endpoints
         const generalLimiter = rateLimit(config.security.rateLimit.general);
         const uploadLimiter = rateLimit(config.security.rateLimit.upload);
-        
+
         // Apply general rate limiting to all API endpoints except uploads
         this.app.use('/api/', (req, res, next) => {
             if (req.path.startsWith('/upload/')) {
@@ -89,6 +89,7 @@ class UploadServer {
         this.app.post('/api/upload/complete', this.completeUpload.bind(this));
         this.app.post('/api/upload/cancel', this.cancelUpload.bind(this));
         this.app.get('/api/movies', this.getMovies.bind(this));
+        this.app.get('/api/movies/search', this.searchMovies.bind(this));
         this.app.get('/api/movies/:id', this.getMovie.bind(this));
         this.app.delete('/api/movies/:id', this.deleteMovie.bind(this));
         this.app.get('/api/status', this.getServerStatus.bind(this));
@@ -115,14 +116,14 @@ class UploadServer {
 
             // Validate file type
             if (!isValidVideoFile(filename, config.upload.allowedExtensions)) {
-                return res.status(400).json({ 
+                return res.status(400).json({
                     error: 'Invalid file type. Allowed extensions: ' + config.upload.allowedExtensions.join(', ')
                 });
             }
 
             // Check file size limit
             if (fileSize > config.upload.maxFileSize) {
-                return res.status(400).json({ 
+                return res.status(400).json({
                     error: `File too large. Maximum size: ${formatFileSize(config.upload.maxFileSize)}`
                 });
             }
@@ -345,7 +346,7 @@ class UploadServer {
         try {
             const { status } = req.query;
             const movies = await this.db.getAllMovies(status);
-            
+
             // Add streaming URLs
             const moviesWithUrls = movies.map(movie => ({
                 ...movie,
@@ -361,11 +362,36 @@ class UploadServer {
         }
     }
 
+    async searchMovies(req, res) {
+        try {
+            const { q, status } = req.query;
+
+            if (!q || q.trim().length === 0) {
+                return res.json([]);
+            }
+
+            const movies = await this.db.searchMovies(q.trim(), status);
+
+            // Add streaming URLs
+            const moviesWithUrls = movies.map(movie => ({
+                ...movie,
+                posterUrl: movie.poster_path ? `${config.network.streamingUrl}/${path.basename(movie.path)}/poster.jpg` : null,
+                streamUrl: movie.hls_path ? `${config.network.streamingUrl}/${path.basename(movie.path)}/hls/playlist.m3u8` : null,
+                downloadUrl: `${config.network.streamingUrl}/${path.basename(movie.path)}/movie.mp4`
+            }));
+
+            res.json(moviesWithUrls);
+        } catch (error) {
+            console.error('Error searching movies:', error);
+            res.status(500).json({ error: 'Failed to search movies' });
+        }
+    }
+
     async getMovie(req, res) {
         try {
             const { id } = req.params;
             const movie = await this.db.getMovie(id);
-            
+
             if (!movie) {
                 return res.status(404).json({ error: 'Movie not found' });
             }
@@ -389,7 +415,7 @@ class UploadServer {
         try {
             const { id } = req.params;
             const movie = await this.db.getMovie(id);
-            
+
             if (!movie) {
                 return res.status(404).json({ error: 'Movie not found' });
             }
@@ -468,11 +494,11 @@ class UploadServer {
 
     async shutdown() {
         console.log('Shutting down upload server...');
-        
+
         if (this.server) {
             this.server.close();
         }
-        
+
         await this.db.close();
         process.exit(0);
     }

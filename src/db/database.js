@@ -25,7 +25,7 @@ class Database {
     async runSchema() {
         const schemaPath = path.join(__dirname, 'schema.sql');
         const schema = fs.readFileSync(schemaPath, 'utf8');
-        
+
         return new Promise((resolve, reject) => {
             this.db.exec(schema, (err) => {
                 if (err) {
@@ -47,7 +47,7 @@ class Database {
                 INSERT INTO movies (title, year, filename, path, file_size, status)
                 VALUES (?, ?, ?, ?, ?, 'uploading')
             `;
-            this.db.run(sql, [title, year, filename, path, file_size], function(err) {
+            this.db.run(sql, [title, year, filename, path, file_size], function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -61,9 +61,9 @@ class Database {
         const fields = Object.keys(updates);
         const values = Object.values(updates);
         const sql = `UPDATE movies SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`;
-        
+
         return new Promise((resolve, reject) => {
-            this.db.run(sql, [...values, id], function(err) {
+            this.db.run(sql, [...values, id], function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -90,14 +90,36 @@ class Database {
         return new Promise((resolve, reject) => {
             let sql = 'SELECT * FROM movies';
             let params = [];
-            
+
             if (status) {
                 sql += ' WHERE status = ?';
                 params.push(status);
             }
-            
+
             sql += ' ORDER BY uploaded_at DESC';
-            
+
+            this.db.all(sql, params, (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows);
+                }
+            });
+        });
+    }
+
+    async searchMovies(query, status = null) {
+        return new Promise((resolve, reject) => {
+            let sql = 'SELECT * FROM movies WHERE (title LIKE ? OR filename LIKE ?)';
+            let params = [`%${query}%`, `%${query}%`];
+
+            if (status) {
+                sql += ' AND status = ?';
+                params.push(status);
+            }
+
+            sql += ' ORDER BY uploaded_at DESC';
+
             this.db.all(sql, params, (err, rows) => {
                 if (err) {
                     reject(err);
@@ -111,7 +133,7 @@ class Database {
     async deleteMovie(id) {
         return new Promise((resolve, reject) => {
             const sql = 'DELETE FROM movies WHERE id = ?';
-            this.db.run(sql, [id], function(err) {
+            this.db.run(sql, [id], function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -129,7 +151,7 @@ class Database {
                 INSERT INTO upload_sessions (id, filename, total_size, chunk_size, expires_at)
                 VALUES (?, ?, ?, ?, ?)
             `;
-            this.db.run(sql, [id, filename, total_size, chunk_size, expires_at], function(err) {
+            this.db.run(sql, [id, filename, total_size, chunk_size, expires_at], function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -156,9 +178,9 @@ class Database {
         const fields = Object.keys(updates);
         const values = Object.values(updates);
         const sql = `UPDATE upload_sessions SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`;
-        
+
         return new Promise((resolve, reject) => {
-            this.db.run(sql, [...values, id], function(err) {
+            this.db.run(sql, [...values, id], function (err) {
                 if (err) {
                     reject(err);
                 } else {
@@ -171,7 +193,7 @@ class Database {
     async cleanupExpiredSessions() {
         return new Promise((resolve, reject) => {
             const sql = 'DELETE FROM upload_sessions WHERE status = "expired" OR expires_at < datetime("now")';
-            this.db.run(sql, function(err) {
+            this.db.run(sql, function (err) {
                 if (err) {
                     reject(err);
                 } else {
