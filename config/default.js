@@ -11,16 +11,16 @@ module.exports = {
     },
 
     media: {
-        port: 8080,
+        port: 3456,
         host: '0.0.0.0',
         staticRoot: '/media/movies'
     },
 
     // Storage configuration
     storage: {
-        mediaPath: '/media/movies',
-        tempPath: '/tmp/pi-media-uploads',
-        dbPath: process.env.HOME + '/media.db'
+        mediaPath: process.platform === 'win32' ? './media/movies' : '/media/movies',
+        tempPath: process.platform === 'win32' ? './tmp/pi-media-uploads' : '/tmp/pi-media-uploads',
+        dbPath: process.platform === 'win32' ? './media.db' : (process.env.HOME + '/media.db')
     },
 
     // Redis configuration for job queue
@@ -64,7 +64,7 @@ module.exports = {
     network: {
         piIp: '192.168.18.3', // Default Pi IP - should be updated based on actual network
         uploadUrl: 'http://192.168.18.3:3000',
-        streamingUrl: 'http://192.168.18.3:8080'
+        streamingUrl: 'http://192.168.18.3:3456'
     },
 
     // Server branding

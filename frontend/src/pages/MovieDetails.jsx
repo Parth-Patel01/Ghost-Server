@@ -218,15 +218,32 @@ const MovieDetails = () => {
                                 </div>
                             )}
 
-                            {/* Action Buttons */}
+                            {/* Action Buttons - Netflix Style */}
                             <div className="flex gap-4">
-                                <Link
-                                    to={`/player/${movie.id}`}
-                                    className="flex items-center gap-2 px-8 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors"
-                                >
-                                    <PlayIcon className="w-5 h-5" />
-                                    Play Movie
-                                </Link>
+                                {/* Check if user has watched this movie before */}
+                                {(() => {
+                                    const watchProgress = localStorage.getItem(`watch_progress_${movie.id}`)
+                                    const hasWatched = watchProgress && JSON.parse(watchProgress).watched
+
+                                    return hasWatched ? (
+                                        <Link
+                                            to={`/player/${movie.id}`}
+                                            className="flex items-center gap-2 px-8 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+                                        >
+                                            <PlayIcon className="w-5 h-5" />
+                                            Resume
+                                        </Link>
+                                    ) : (
+                                        <Link
+                                            to={`/player/${movie.id}`}
+                                            className="flex items-center gap-2 px-8 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+                                        >
+                                            <PlayIcon className="w-5 h-5" />
+                                            Play Now
+                                        </Link>
+                                    )
+                                })()}
+
                                 <button className="flex items-center gap-2 px-8 py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors">
                                     <UserGroupIcon className="w-5 h-5" />
                                     Watch with Friends

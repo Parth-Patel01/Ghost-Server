@@ -6,7 +6,6 @@ import clsx from 'clsx'
 const navigation = [
   { name: 'Library', href: '/', icon: HomeIcon },
   { name: 'Upload', href: '/upload', icon: CloudArrowUpIcon },
-  { name: 'Media Only', href: '/media-only', icon: HomeIcon },
 ]
 
 const Navbar = () => {

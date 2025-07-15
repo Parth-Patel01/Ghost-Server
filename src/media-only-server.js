@@ -1,62 +1,75 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const cors = require('cors');
+const helmet = require('helmet');
 const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const fs = require('fs').promises;
+const path = require('path');
+
+const config = require('../config/default');
+const Database = require('./db/database');
 
 class MediaOnlyServer {
     constructor() {
         this.app = express();
+        this.db = new Database(config.storage.dbPath);
         this.setupMiddleware();
         this.setupRoutes();
     }
 
     setupMiddleware() {
-        // CORS for cross-origin requests
-        this.app.use(cors({
-            origin: true,
-            credentials: true
+        // Security middleware
+        this.app.use(helmet({
+            contentSecurityPolicy: false // Allow inline scripts for development
         }));
-
-        // Compression for better performance
         this.app.use(compression());
+        this.app.use(cors(config.security.cors));
+
+        // Rate limiting
+        const generalLimiter = rateLimit(config.security.rateLimit.general);
+        this.app.use('/api/', generalLimiter);
+
+        // Body parsing
+        this.app.use(express.json({ limit: '50mb' }));
+        this.app.use(express.urlencoded({ extended: true }));
+
+        // Serve static frontend files
+        this.app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
         // Request logging
         this.app.use((req, res, next) => {
-            console.log(`${new Date().toISOString()} - Media: ${req.method} ${req.path}`);
+            console.log(`${new Date().toISOString()} - Media Only: ${req.method} ${req.path}`);
             next();
         });
     }
 
     setupRoutes() {
-        // Health check
-        this.app.get('/health', (req, res) => {
+        // API Routes
+        this.app.get('/api/movies', this.getMovies.bind(this));
+        this.app.get('/api/movies/search', this.searchMovies.bind(this));
+        this.app.get('/api/movies/:id', this.getMovie.bind(this));
+        this.app.get('/api/status', this.getServerStatus.bind(this));
+        this.app.get('/api/health', (req, res) => {
             res.json({ status: 'healthy', service: 'media-only-server' });
         });
 
-        // API Routes for movie information
-        this.app.get('/api/movies', this.getMovies.bind(this));
-        this.app.get('/api/movies/:id', this.getMovie.bind(this));
-        this.app.get('/api/movies/search', this.searchMovies.bind(this));
-
         // Serve movie files with byte-range support
         this.app.get('/:movieDir/movie.mp4', this.serveVideo.bind(this));
-
+        
         // Serve poster images
         this.app.get('/:movieDir/poster.jpg', this.servePoster.bind(this));
-
+        
         // Serve HLS playlist files
         this.app.get('/:movieDir/hls/playlist.m3u8', this.servePlaylist.bind(this));
-
+        
         // Serve HLS segment files
         this.app.get('/:movieDir/hls/:segment', this.serveSegment.bind(this));
 
         // Generic static file serving for other assets
-        this.app.use(express.static('/media/movies', {
+        this.app.use(express.static(config.storage.mediaPath, {
             setHeaders: (res, filePath, stat) => {
                 // Enable byte-range requests for all files
                 res.set('Accept-Ranges', 'bytes');
-                res.set('Cache-Control', 'public, max-age=3600');
             }
         }));
 
@@ -65,156 +78,102 @@ class MediaOnlyServer {
             res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
         });
 
-        // 404 handler
-        this.app.use((req, res) => {
-            res.status(404).json({ error: 'File not found' });
-        });
+        // Error handling
+        this.app.use(this.errorHandler.bind(this));
     }
 
     async getMovies(req, res) {
         try {
-            const moviesDir = '/media/movies';
-            const movies = [];
+            const { status } = req.query;
+            const movies = await this.db.getAllMovies(status);
 
-            if (fs.existsSync(moviesDir)) {
-                const movieFolders = fs.readdirSync(moviesDir, { withFileTypes: true })
-                    .filter(dirent => dirent.isDirectory())
-                    .map(dirent => dirent.name);
+            // Add streaming URLs
+            const moviesWithUrls = movies.map(movie => ({
+                ...movie,
+                posterUrl: movie.poster_path ? `http://${config.media.host}:${config.media.port}/${path.basename(movie.path)}/poster.jpg` : null,
+                streamUrl: movie.hls_path ? `http://${config.media.host}:${config.media.port}/${path.basename(movie.path)}/hls/playlist.m3u8` : null,
+                downloadUrl: `http://${config.media.host}:${config.media.port}/${path.basename(movie.path)}/movie.mp4`
+            }));
 
-                for (const folder of movieFolders) {
-                    const moviePath = path.join(moviesDir, folder);
-                    const movieFile = path.join(moviePath, 'movie.mp4');
-                    const posterFile = path.join(moviePath, 'poster.jpg');
-
-                    if (fs.existsSync(movieFile)) {
-                        const stat = fs.statSync(movieFile);
-                        const movieInfo = this.parseMovieInfo(folder);
-
-                        movies.push({
-                            id: folder,
-                            title: movieInfo.title,
-                            year: movieInfo.year,
-                            filename: 'movie.mp4',
-                            path: moviePath,
-                            file_size: stat.size,
-                            poster_path: fs.existsSync(posterFile) ? posterFile : null,
-                            hls_path: fs.existsSync(path.join(moviePath, 'hls', 'playlist.m3u8')) ? path.join(moviePath, 'hls') : null,
-                            status: 'ready',
-                            uploaded_at: stat.mtime.toISOString(),
-                            posterUrl: fs.existsSync(posterFile) ? `http://localhost:8080/${folder}/poster.jpg` : null,
-                            streamUrl: fs.existsSync(path.join(moviePath, 'hls', 'playlist.m3u8')) ? `http://localhost:8080/${folder}/hls/playlist.m3u8` : null,
-                            downloadUrl: `http://localhost:8080/${folder}/movie.mp4`
-                        });
-                    }
-                }
-            }
-
-            // Sort by upload date (newest first)
-            movies.sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at));
-            res.json(movies);
+            res.json(moviesWithUrls);
         } catch (error) {
             console.error('Error getting movies:', error);
             res.status(500).json({ error: 'Failed to retrieve movies' });
         }
     }
 
-    async getMovie(req, res) {
-        try {
-            const { id } = req.params;
-            const moviePath = path.join('/media/movies', id);
-            const movieFile = path.join(moviePath, 'movie.mp4');
-
-            if (!fs.existsSync(movieFile)) {
-                return res.status(404).json({ error: 'Movie not found' });
-            }
-
-            const stat = fs.statSync(movieFile);
-            const posterFile = path.join(moviePath, 'poster.jpg');
-            const movieInfo = this.parseMovieInfo(id);
-
-            const movie = {
-                id,
-                title: movieInfo.title,
-                year: movieInfo.year,
-                filename: 'movie.mp4',
-                path: moviePath,
-                file_size: stat.size,
-                poster_path: fs.existsSync(posterFile) ? posterFile : null,
-                hls_path: fs.existsSync(path.join(moviePath, 'hls', 'playlist.m3u8')) ? path.join(moviePath, 'hls') : null,
-                status: 'ready',
-                uploaded_at: stat.mtime.toISOString(),
-                posterUrl: fs.existsSync(posterFile) ? `http://localhost:8080/${id}/poster.jpg` : null,
-                streamUrl: fs.existsSync(path.join(moviePath, 'hls', 'playlist.m3u8')) ? `http://localhost:8080/${id}/hls/playlist.m3u8` : null,
-                downloadUrl: `http://localhost:8080/${id}/movie.mp4`
-            };
-
-            res.json(movie);
-        } catch (error) {
-            console.error('Error getting movie:', error);
-            res.status(500).json({ error: 'Failed to retrieve movie' });
-        }
-    }
-
     async searchMovies(req, res) {
         try {
-            const { q } = req.query;
+            const { q, status } = req.query;
 
             if (!q || q.trim().length === 0) {
                 return res.json([]);
             }
 
-            const movies = await this.getMovies(req, res);
-            const searchResults = movies.filter(movie =>
-                movie.title.toLowerCase().includes(q.toLowerCase()) ||
-                movie.filename.toLowerCase().includes(q.toLowerCase())
-            );
+            const movies = await this.db.searchMovies(q.trim(), status);
 
-            res.json(searchResults);
+            // Add streaming URLs
+            const moviesWithUrls = movies.map(movie => ({
+                ...movie,
+                posterUrl: movie.poster_path ? `http://${config.media.host}:${config.media.port}/${path.basename(movie.path)}/poster.jpg` : null,
+                streamUrl: movie.hls_path ? `http://${config.media.host}:${config.media.port}/${path.basename(movie.path)}/hls/playlist.m3u8` : null,
+                downloadUrl: `http://${config.media.host}:${config.media.port}/${path.basename(movie.path)}/movie.mp4`
+            }));
+
+            res.json(moviesWithUrls);
         } catch (error) {
             console.error('Error searching movies:', error);
             res.status(500).json({ error: 'Failed to search movies' });
         }
     }
 
-    parseMovieInfo(folderName) {
-        // Parse movie title and year from folder name
-        const patterns = [
-            /^(.+?)[\.\s]+\(?(\d{4})\)?/,
-            /^(.+?)\s*\((\d{4})\)/,
-            /^(.+?)\s+(\d{4})/,
-            /^(.+?)(?:\s*\d{4})?$/
-        ];
+    async getMovie(req, res) {
+        try {
+            const { id } = req.params;
+            const movie = await this.db.getMovie(id);
 
-        let title = folderName;
-        let year = null;
-
-        for (const pattern of patterns) {
-            const match = folderName.match(pattern);
-            if (match) {
-                title = match[1];
-                year = match[2] ? parseInt(match[2]) : null;
-                break;
+            if (!movie) {
+                return res.status(404).json({ error: 'Movie not found' });
             }
+
+            // Add streaming URLs
+            const movieWithUrls = {
+                ...movie,
+                posterUrl: movie.poster_path ? `http://${config.media.host}:${config.media.port}/${path.basename(movie.path)}/poster.jpg` : null,
+                streamUrl: movie.hls_path ? `http://${config.media.host}:${config.media.port}/${path.basename(movie.path)}/hls/playlist.m3u8` : null,
+                downloadUrl: `http://${config.media.host}:${config.media.port}/${path.basename(movie.path)}/movie.mp4`
+            };
+
+            res.json(movieWithUrls);
+        } catch (error) {
+            console.error('Error getting movie:', error);
+            res.status(500).json({ error: 'Failed to retrieve movie' });
         }
+    }
 
-        // Clean up title
-        title = title
-            .replace(/[\.\-_]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
+    async getServerStatus(req, res) {
+        try {
+            const movies = await this.db.getAllMovies();
+            const readyCount = movies.filter(m => m.status === 'ready').length;
 
-        // Capitalize first letter of each word
-        title = title.replace(/\w\S*/g, (txt) =>
-            txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-        );
-
-        return { title, year };
+            res.json({
+                status: 'healthy',
+                timestamp: new Date().toISOString(),
+                movies: {
+                    total: movies.length,
+                    ready: readyCount
+                }
+            });
+        } catch (error) {
+            console.error('Error getting server status:', error);
+            res.status(500).json({ error: 'Failed to get server status' });
+        }
     }
 
     async serveVideo(req, res) {
         try {
             const { movieDir } = req.params;
-            const videoPath = path.join('/media/movies', movieDir, 'movie.mp4');
+            const videoPath = path.join(config.storage.mediaPath, movieDir, 'movie.mp4');
 
             // Check if file exists
             if (!fs.existsSync(videoPath)) {
@@ -270,7 +229,7 @@ class MediaOnlyServer {
     async servePoster(req, res) {
         try {
             const { movieDir } = req.params;
-            const posterPath = path.join('/media/movies', movieDir, 'poster.jpg');
+            const posterPath = path.join(config.storage.mediaPath, movieDir, 'poster.jpg');
 
             if (!fs.existsSync(posterPath)) {
                 return res.status(404).json({ error: 'Poster not found' });
@@ -292,7 +251,7 @@ class MediaOnlyServer {
     async servePlaylist(req, res) {
         try {
             const { movieDir } = req.params;
-            const playlistPath = path.join('/media/movies', movieDir, 'hls', 'playlist.m3u8');
+            const playlistPath = path.join(config.storage.mediaPath, movieDir, 'hls', 'playlist.m3u8');
 
             if (!fs.existsSync(playlistPath)) {
                 return res.status(404).json({ error: 'Playlist not found' });
@@ -314,13 +273,13 @@ class MediaOnlyServer {
     async serveSegment(req, res) {
         try {
             const { movieDir, segment } = req.params;
-
+            
             // Validate segment filename (should be .ts files)
             if (!segment.endsWith('.ts')) {
                 return res.status(400).json({ error: 'Invalid segment file' });
             }
 
-            const segmentPath = path.join('/media/movies', movieDir, 'hls', segment);
+            const segmentPath = path.join(config.storage.mediaPath, movieDir, 'hls', segment);
 
             if (!fs.existsSync(segmentPath)) {
                 return res.status(404).json({ error: 'Segment not found' });
@@ -346,7 +305,7 @@ class MediaOnlyServer {
                     'Accept-Ranges': 'bytes',
                     'Content-Length': chunksize,
                     'Content-Type': 'video/mp2t',
-                    'Cache-Control': 'public, max-age=3600'
+                    'Cache-Control': 'public, max-age=86400' // Cache segments for 24 hours
                 };
 
                 res.writeHead(206, head);
@@ -354,14 +313,13 @@ class MediaOnlyServer {
 
             } else {
                 // Serve full segment
-                const head = {
-                    'Content-Length': stat.size,
+                res.set({
                     'Content-Type': 'video/mp2t',
+                    'Content-Length': stat.size,
                     'Accept-Ranges': 'bytes',
-                    'Cache-Control': 'public, max-age=3600'
-                };
+                    'Cache-Control': 'public, max-age=86400'
+                });
 
-                res.writeHead(200, head);
                 fs.createReadStream(segmentPath).pipe(res);
             }
 
@@ -371,25 +329,43 @@ class MediaOnlyServer {
         }
     }
 
-    start() {
-        const port = process.env.MEDIA_PORT || 8080;
-        const host = process.env.MEDIA_HOST || '0.0.0.0';
-
-        this.server = this.app.listen(port, host, () => {
-            console.log(`Media-only server running on http://${host}:${port}`);
-            console.log('This server only serves movies - no upload functionality');
-        });
-
-        // Cleanup on exit
-        process.on('SIGTERM', this.shutdown.bind(this));
-        process.on('SIGINT', this.shutdown.bind(this));
+    errorHandler(err, req, res, next) {
+        console.error('Express error:', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 
-    shutdown() {
+    async start() {
+        try {
+            // Initialize database
+            await this.db.initialize();
+
+            // Ensure directories exist
+            await fs.mkdir(config.storage.mediaPath, { recursive: true });
+
+            // Start server
+            this.server = this.app.listen(config.media.port, config.media.host, () => {
+                console.log(`Media-only server running on http://${config.media.host}:${config.media.port}`);
+                console.log(`Serving files from: ${config.storage.mediaPath}`);
+            });
+
+            // Cleanup on exit
+            process.on('SIGTERM', this.shutdown.bind(this));
+            process.on('SIGINT', this.shutdown.bind(this));
+
+        } catch (error) {
+            console.error('Failed to start media-only server:', error);
+            process.exit(1);
+        }
+    }
+
+    async shutdown() {
         console.log('Shutting down media-only server...');
+
         if (this.server) {
             this.server.close();
         }
+
+        await this.db.close();
         process.exit(0);
     }
 }

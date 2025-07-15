@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Upload from './pages/Upload'
 import Library from './pages/Library'
-import MediaOnly from './pages/MediaOnly'
 import Player from './pages/Player'
 import MovieDetails from './pages/MovieDetails'
 import './index.css'
@@ -18,7 +17,6 @@ function App() {
           <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-4 lg:px-8 py-8">
             <Routes>
               <Route path="/" element={<Library />} />
-              <Route path="/media-only" element={<MediaOnly />} />
               <Route path="/upload" element={<Upload />} />
               <Route path="/player/:movieId" element={<Player />} />
               <Route path="/movie/:movieId" element={<MovieDetails />} />
